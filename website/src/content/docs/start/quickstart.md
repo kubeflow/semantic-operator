@@ -19,7 +19,7 @@ Install these and make sure Docker is running:
 Clone the repository and run every command from its root:
 
 ```bash
-git clone https://github.com/KubedAI/semantic-operator
+git clone https://github.com/kubeflow/semantic-operator
 cd semantic-operator
 ```
 

@@ -18,7 +18,7 @@ implement. Adding it requires editing the driver source, so a minimal in-tree
 fork is the only option. The project points at exactly one MySQL driver; this
 copy replaces the upstream dependency for the StarRocks client.
 
-## Modifications by KubedAI (semantic-operator)
+## Modifications by Semantic Operator contributors
 
 Under MPL 2.0, modified files remain under MPL 2.0 and their source is
 available here. The changes are:
@@ -35,7 +35,7 @@ available here. The changes are:
    guard the change across future rebases.
 
 Each modified source file keeps its original MPL 2.0 header and carries an
-inline "MODIFIED by KubedAI" marker at the change site.
+inline "MODIFIED by Semantic Operator contributors" marker at the change site.
 
 ## Maintenance
 

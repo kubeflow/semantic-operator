@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/KubedAI/semantic-operator/internal/emitter"
+	"github.com/kubeflow/semantic-operator/internal/emitter"
 )
 
 func TestRegistered(t *testing.T) {

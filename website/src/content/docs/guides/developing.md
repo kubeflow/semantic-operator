@@ -13,7 +13,7 @@ You need Go 1.26 or later. For the cluster steps you also need Docker, `kind`, `
 and `helm`.
 
 ```bash
-git clone https://github.com/KubedAI/semantic-operator.git
+git clone https://github.com/kubeflow/semantic-operator.git
 cd semantic-operator
 make build
 ```

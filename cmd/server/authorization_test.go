@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/KubedAI/semantic-operator/internal/governance"
-	"github.com/KubedAI/semantic-operator/internal/serving/authorization"
+	"github.com/kubeflow/semantic-operator/internal/governance"
+	"github.com/kubeflow/semantic-operator/internal/serving/authorization"
 	"sigs.k8s.io/yaml"
 )
 

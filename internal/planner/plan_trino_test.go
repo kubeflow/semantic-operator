@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/KubedAI/semantic-operator/internal/emitter"
-	_ "github.com/KubedAI/semantic-operator/internal/emitter/trino"
-	"github.com/KubedAI/semantic-operator/internal/governance"
+	"github.com/kubeflow/semantic-operator/internal/emitter"
+	_ "github.com/kubeflow/semantic-operator/internal/emitter/trino"
+	"github.com/kubeflow/semantic-operator/internal/governance"
 )
 
 // These tests compile plans under a double-quote dialect and prove no

@@ -11,8 +11,8 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/KubedAI/semantic-operator/internal/governance"
-	"github.com/KubedAI/semantic-operator/internal/planner"
+	"github.com/kubeflow/semantic-operator/internal/governance"
+	"github.com/kubeflow/semantic-operator/internal/planner"
 )
 
 // ErrUnavailable marks a provider configuration, transport, or response

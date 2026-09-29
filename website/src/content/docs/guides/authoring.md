@@ -6,7 +6,7 @@ How to go from raw tables in your catalog to a certified `SemanticModel`. Start 
 
 **Who does this.** A data or analytics engineer, the metric author. Consumers (AI agents, apps, BI) never write this. They read it through MCP, REST, and views.
 
-**The shape of a model.** See [`examples/retail/model/semanticmodel.yaml`](https://github.com/KubedAI/semantic-operator/blob/main/examples/retail/model/semanticmodel.yaml) for a complete worked example.
+**The shape of a model.** See [`examples/retail/model/semanticmodel.yaml`](https://github.com/kubeflow/semantic-operator/blob/main/examples/retail/model/semanticmodel.yaml) for a complete worked example.
 
 ```
 spec:

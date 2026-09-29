@@ -1,9 +1,9 @@
 # Semantic Operator
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![CI](https://github.com/KubedAI/semantic-operator/actions/workflows/ci.yaml/badge.svg)](https://github.com/KubedAI/semantic-operator/actions/workflows/ci.yaml)
+[![CI](https://github.com/kubeflow/semantic-operator/actions/workflows/ci.yaml/badge.svg)](https://github.com/kubeflow/semantic-operator/actions/workflows/ci.yaml)
 
-**📖 Documentation: <https://kubedai.github.io/semantic-operator>**
+**📖 Documentation: <https://kubeflow.github.io/semantic-operator>**
 
 A Kubernetes operator and server that run an [Apache Ossie](https://ossie.apache.org/)
 (incubating) semantic layer on your existing data platform. You define each business
@@ -24,7 +24,7 @@ successfully while using the wrong business definition. We measured both approac
 | **Semantic layer** | **87/90 (97%)** | **27/30 (90%)** | 3 |
 
 Every raw-path miss executed without error and returned a confidently wrong number.
-[Full results and method →](https://kubedai.github.io/semantic-operator/examples/benchmark-results)
+[Full results and method →](https://kubeflow.github.io/semantic-operator/examples/benchmark-results)
 
 ## How it fits together
 
@@ -43,14 +43,14 @@ Run the complete stack locally with Docker, kind, `kubectl`, Helm, Make, and the
 from `go.mod`:
 
 ```bash
-git clone https://github.com/KubedAI/semantic-operator.git
+git clone https://github.com/kubeflow/semantic-operator.git
 cd semantic-operator
 make quickstart
 ```
 
 This creates a local kind cluster, installs Trino and Semantic Operator, loads demo data,
 and publishes a certified model.
-[Run your first governed query →](https://kubedai.github.io/semantic-operator/start/quickstart)
+[Run your first governed query →](https://kubeflow.github.io/semantic-operator/start/quickstart)
 
 ## Repository layout
 
@@ -66,17 +66,17 @@ website/          documentation site (Astro + Starlight)
 
 ## Documentation
 
-Everything lives on the [docs site](https://kubedai.github.io/semantic-operator). The most
+Everything lives on the [docs site](https://kubeflow.github.io/semantic-operator). The most
 useful entry points:
 
-- [What a semantic layer is](https://kubedai.github.io/semantic-operator/start/introduction)
-  and [how Semantic Operator works](https://kubedai.github.io/semantic-operator/architecture)
-- [How an agent request becomes SQL](https://kubedai.github.io/semantic-operator/architecture/agent-to-sql)
-- [Authoring a model](https://kubedai.github.io/semantic-operator/guides/authoring)
-- [Components and access](https://kubedai.github.io/semantic-operator/architecture/access),
+- [What a semantic layer is](https://kubeflow.github.io/semantic-operator/start/introduction)
+  and [how Semantic Operator works](https://kubeflow.github.io/semantic-operator/architecture)
+- [How an agent request becomes SQL](https://kubeflow.github.io/semantic-operator/architecture/agent-to-sql)
+- [Authoring a model](https://kubeflow.github.io/semantic-operator/guides/authoring)
+- [Components and access](https://kubeflow.github.io/semantic-operator/architecture/access),
   including the permissions each component needs
-- [Adding a query engine](https://kubedai.github.io/semantic-operator/guides/adding-an-engine)
-- [Examples](https://kubedai.github.io/semantic-operator/examples)
+- [Adding a query engine](https://kubeflow.github.io/semantic-operator/guides/adding-an-engine)
+- [Examples](https://kubeflow.github.io/semantic-operator/examples)
 
 To run the docs locally:
 
@@ -86,10 +86,10 @@ make docs        # install deps and serve at http://localhost:4321
 
 ## Contributing
 
-Start with the [developer guide](https://kubedai.github.io/semantic-operator/guides/developing)
+Start with the [developer guide](https://kubeflow.github.io/semantic-operator/guides/developing)
 for the code layout and the offline test loop (`make test` needs no cluster).
-[Adding a query engine](https://kubedai.github.io/semantic-operator/guides/adding-an-engine)
-and [adding a catalog source](https://kubedai.github.io/semantic-operator/guides/adding-a-catalog)
+[Adding a query engine](https://kubeflow.github.io/semantic-operator/guides/adding-an-engine)
+and [adding a catalog source](https://kubeflow.github.io/semantic-operator/guides/adding-a-catalog)
 describe the main extension points.
 
 ## License

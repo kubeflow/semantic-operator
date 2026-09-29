@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/KubedAI/semantic-operator/internal/dbclient"
-	mysql "github.com/KubedAI/semantic-operator/internal/starrocks/mysqldriver"
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
+	mysql "github.com/kubeflow/semantic-operator/internal/starrocks/mysqldriver"
 )
 
 // DefaultPort is the StarRocks FE MySQL-protocol port.

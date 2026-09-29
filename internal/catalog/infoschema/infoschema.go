@@ -13,9 +13,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/KubedAI/semantic-operator/internal/catalog"
-	"github.com/KubedAI/semantic-operator/internal/dbclient"
-	"github.com/KubedAI/semantic-operator/internal/emitter"
+	"github.com/kubeflow/semantic-operator/internal/catalog"
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
+	"github.com/kubeflow/semantic-operator/internal/emitter"
 )
 
 // Source lists tables through the engine's information_schema.

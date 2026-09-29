@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/KubedAI/semantic-operator/internal/serving/auth"
+	"github.com/kubeflow/semantic-operator/internal/serving/auth"
 )
 
 func TestToEngineConfigSharesMaxResultBytes(t *testing.T) {

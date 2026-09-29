@@ -11,10 +11,10 @@ import (
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/KubedAI/semantic-operator/internal/governance"
-	"github.com/KubedAI/semantic-operator/internal/planner"
-	"github.com/KubedAI/semantic-operator/internal/serving"
-	"github.com/KubedAI/semantic-operator/internal/serving/auth"
+	"github.com/kubeflow/semantic-operator/internal/governance"
+	"github.com/kubeflow/semantic-operator/internal/planner"
+	"github.com/kubeflow/semantic-operator/internal/serving"
+	"github.com/kubeflow/semantic-operator/internal/serving/auth"
 )
 
 // Identity headers are trusted only in header mode; see internal/serving/auth.

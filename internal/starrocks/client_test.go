@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/KubedAI/semantic-operator/internal/dbclient"
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
 )
 
 // The guards below all return before any network dial, so these tests need no

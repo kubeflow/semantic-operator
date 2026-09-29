@@ -15,11 +15,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	semanticv1alpha1 "github.com/KubedAI/semantic-operator/api/v1alpha1"
-	sr "github.com/KubedAI/semantic-operator/internal/dbclient"
-	"github.com/KubedAI/semantic-operator/internal/emitter"
-	_ "github.com/KubedAI/semantic-operator/internal/emitter/starrocks"
-	"github.com/KubedAI/semantic-operator/internal/planner"
+	semanticv1alpha1 "github.com/kubeflow/semantic-operator/api/v1alpha1"
+	sr "github.com/kubeflow/semantic-operator/internal/dbclient"
+	"github.com/kubeflow/semantic-operator/internal/emitter"
+	_ "github.com/kubeflow/semantic-operator/internal/emitter/starrocks"
+	"github.com/kubeflow/semantic-operator/internal/planner"
 )
 
 // fakeStarRocks serves canned DESC output and records DDL.

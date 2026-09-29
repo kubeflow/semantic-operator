@@ -7,7 +7,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/KubedAI/semantic-operator/api/v1alpha1"
+	"github.com/kubeflow/semantic-operator/api/v1alpha1"
 )
 
 func enrichTestTables() []Table {

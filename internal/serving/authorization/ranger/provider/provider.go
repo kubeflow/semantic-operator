@@ -14,9 +14,9 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/KubedAI/semantic-operator/internal/governance"
-	"github.com/KubedAI/semantic-operator/internal/serving/authorization"
-	"github.com/KubedAI/semantic-operator/internal/serving/authorization/ranger"
+	"github.com/kubeflow/semantic-operator/internal/governance"
+	"github.com/kubeflow/semantic-operator/internal/serving/authorization"
+	"github.com/kubeflow/semantic-operator/internal/serving/authorization/ranger"
 )
 
 const (

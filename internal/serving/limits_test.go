@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/KubedAI/semantic-operator/internal/planner"
+	"github.com/kubeflow/semantic-operator/internal/planner"
 )
 
 // A request with no limit used to compile to SQL with no LIMIT clause, so one

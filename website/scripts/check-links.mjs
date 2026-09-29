@@ -26,10 +26,10 @@ const CHECK_EXTERNAL = process.argv.includes('--external');
 // Hosts that legitimately fail from CI. The project's own repository is
 // private until launch, so every link to it 404s for an anonymous fetch.
 const EXTERNAL_IGNORE = [
-  /^https:\/\/github\.com\/KubedAI\/semantic-operator/,
+  /^https:\/\/github\.com\/kubeflow\/semantic-operator/,
   // The site's own canonical and sitemap URLs, which only resolve once the
   // site is actually published.
-  /^https:\/\/kubedai\.github\.io/,
+  /^https:\/\/kubeflow\.github\.io/,
   /<[a-z-]+>/i, // template URLs containing placeholders such as <region>
   /^https?:\/\/localhost/,
   /^https?:\/\/127\./,

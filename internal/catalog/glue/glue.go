@@ -10,7 +10,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	awsglue "github.com/aws/aws-sdk-go-v2/service/glue"
 
-	"github.com/KubedAI/semantic-operator/internal/catalog"
+	"github.com/kubeflow/semantic-operator/internal/catalog"
 )
 
 // Source lists Iceberg (or any) tables from Glue.

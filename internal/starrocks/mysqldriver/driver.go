@@ -87,7 +87,7 @@ func (d MySQLDriver) Open(dsn string) (driver.Conn, error) {
 	return c.Connect(context.Background())
 }
 
-// MODIFIED by KubedAI (semantic-operator): registered under a distinct name so
+// MODIFIED by Semantic Operator contributors: registered under a distinct name so
 // this vendored fork never collides with an upstream go-sql-driver/mysql that
 // may also be linked. The project points at exactly one driver; see the
 // package NOTICE for provenance and license.

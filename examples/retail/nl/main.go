@@ -21,8 +21,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/KubedAI/semantic-operator/internal/nlbench"
-	"github.com/KubedAI/semantic-operator/internal/starrocks"
+	"github.com/kubeflow/semantic-operator/internal/nlbench"
+	"github.com/kubeflow/semantic-operator/internal/starrocks"
 )
 
 func main() {

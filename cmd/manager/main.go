@@ -18,14 +18,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	semanticv1alpha1 "github.com/KubedAI/semantic-operator/api/v1alpha1"
-	"github.com/KubedAI/semantic-operator/controllers"
-	"github.com/KubedAI/semantic-operator/internal/dbclient"
-	"github.com/KubedAI/semantic-operator/internal/emitter"
-	_ "github.com/KubedAI/semantic-operator/internal/emitter/starrocks"
-	_ "github.com/KubedAI/semantic-operator/internal/emitter/trino"
-	_ "github.com/KubedAI/semantic-operator/internal/starrocks"
-	_ "github.com/KubedAI/semantic-operator/internal/trino"
+	semanticv1alpha1 "github.com/kubeflow/semantic-operator/api/v1alpha1"
+	"github.com/kubeflow/semantic-operator/controllers"
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
+	"github.com/kubeflow/semantic-operator/internal/emitter"
+	_ "github.com/kubeflow/semantic-operator/internal/emitter/starrocks"
+	_ "github.com/kubeflow/semantic-operator/internal/emitter/trino"
+	_ "github.com/kubeflow/semantic-operator/internal/starrocks"
+	_ "github.com/kubeflow/semantic-operator/internal/trino"
 )
 
 // configEnv names the config file path when --config is not given.

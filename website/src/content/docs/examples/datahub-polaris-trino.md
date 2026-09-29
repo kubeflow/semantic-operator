@@ -655,7 +655,7 @@ compiled model. It applies governance, builds the required joins and
 aggregations, and emits SQL for Trino.
 
 This repo already contains the certified version of this model,
-[`semanticmodel.yaml`](https://github.com/KubedAI/semantic-operator/blob/main/examples/stacks/eks/datahub-polaris-trino/semanticmodel.yaml),
+[`semanticmodel.yaml`](https://github.com/kubeflow/semantic-operator/blob/main/examples/stacks/eks/datahub-polaris-trino/semanticmodel.yaml),
 so the walkthrough does not stall while you hand write seven metrics.
 
 Here is what a person added on top of your scaffold:
@@ -991,7 +991,7 @@ The same numbers the API returned, from the same compiled definition.
 
 AI agents use the same server over MCP at `/mcp` (tools: `list_models`,
 `list_metrics`, `list_dimensions`, `query_metric`). The agent selects certified
-metrics by name and never writes SQL. The [agent example](https://github.com/KubedAI/semantic-operator/blob/main/examples/stacks/kind/datahub-polaris-starrocks/agent) drives exactly this.
+metrics by name and never writes SQL. The [agent example](https://github.com/kubeflow/semantic-operator/blob/main/examples/stacks/kind/datahub-polaris-starrocks/agent) drives exactly this.
 
 ## Results
 

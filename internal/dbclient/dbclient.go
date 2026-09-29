@@ -7,8 +7,8 @@
 // database/sql drivers and emitter.Register, so binaries choose engines by
 // blank import:
 //
-//	_ "github.com/KubedAI/semantic-operator/internal/starrocks"
-//	_ "github.com/KubedAI/semantic-operator/internal/trino"
+//	_ "github.com/kubeflow/semantic-operator/internal/starrocks"
+//	_ "github.com/kubeflow/semantic-operator/internal/trino"
 package dbclient
 
 import (
