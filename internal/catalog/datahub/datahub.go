@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/KubedAI/semantic-operator/internal/catalog"
+	"github.com/kubeflow/semantic-operator/internal/catalog"
 )
 
 // Options configures the client. Token is optional: DataHub deployments

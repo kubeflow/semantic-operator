@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/KubedAI/semantic-operator/internal/confload"
+	"github.com/kubeflow/semantic-operator/internal/confload"
 )
 
 // defaults returns the built-in configuration so the binary is runnable with no

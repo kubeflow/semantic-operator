@@ -24,14 +24,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	semanticv1alpha1 "github.com/KubedAI/semantic-operator/api/v1alpha1"
-	"github.com/KubedAI/semantic-operator/internal/dbclient"
-	"github.com/KubedAI/semantic-operator/internal/emitter"
-	"github.com/KubedAI/semantic-operator/internal/governance"
-	"github.com/KubedAI/semantic-operator/internal/ossie"
-	"github.com/KubedAI/semantic-operator/internal/planner"
-	"github.com/KubedAI/semantic-operator/internal/planner/expr"
-	"github.com/KubedAI/semantic-operator/internal/serving/views"
+	semanticv1alpha1 "github.com/kubeflow/semantic-operator/api/v1alpha1"
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
+	"github.com/kubeflow/semantic-operator/internal/emitter"
+	"github.com/kubeflow/semantic-operator/internal/governance"
+	"github.com/kubeflow/semantic-operator/internal/ossie"
+	"github.com/kubeflow/semantic-operator/internal/planner"
+	"github.com/kubeflow/semantic-operator/internal/planner/expr"
+	"github.com/kubeflow/semantic-operator/internal/serving/views"
 )
 
 const finalizer = "semantic.ossie.io/views-cleanup"

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/KubedAI/semantic-operator/internal/emitter"
+	"github.com/kubeflow/semantic-operator/internal/emitter"
 )
 
 // Dialect emits Trino (ANSI-family) SQL.

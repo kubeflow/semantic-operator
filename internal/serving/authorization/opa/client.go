@@ -15,7 +15,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/KubedAI/semantic-operator/internal/serving/authorization"
+	"github.com/kubeflow/semantic-operator/internal/serving/authorization"
 )
 
 const (

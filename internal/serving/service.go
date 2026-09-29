@@ -11,13 +11,13 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/KubedAI/semantic-operator/internal/cache"
-	"github.com/KubedAI/semantic-operator/internal/dbclient"
-	"github.com/KubedAI/semantic-operator/internal/emitter"
-	"github.com/KubedAI/semantic-operator/internal/governance"
-	"github.com/KubedAI/semantic-operator/internal/observability"
-	"github.com/KubedAI/semantic-operator/internal/planner"
-	"github.com/KubedAI/semantic-operator/internal/serving/authorization"
+	"github.com/kubeflow/semantic-operator/internal/cache"
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
+	"github.com/kubeflow/semantic-operator/internal/emitter"
+	"github.com/kubeflow/semantic-operator/internal/governance"
+	"github.com/kubeflow/semantic-operator/internal/observability"
+	"github.com/kubeflow/semantic-operator/internal/planner"
+	"github.com/kubeflow/semantic-operator/internal/serving/authorization"
 )
 
 // QueryExecutor is the read-only engine surface the service needs. The

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/KubedAI/semantic-operator/api/v1alpha1"
+	"github.com/kubeflow/semantic-operator/api/v1alpha1"
 )
 
 func field(name, expr string, isTime bool) v1alpha1.Field {

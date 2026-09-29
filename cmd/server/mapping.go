@@ -3,11 +3,11 @@ package main
 import (
 	"log/slog"
 
-	"github.com/KubedAI/semantic-operator/internal/cache"
-	"github.com/KubedAI/semantic-operator/internal/dbclient"
-	"github.com/KubedAI/semantic-operator/internal/serving"
-	"github.com/KubedAI/semantic-operator/internal/serving/auth"
-	"github.com/KubedAI/semantic-operator/internal/serving/exchange"
+	"github.com/kubeflow/semantic-operator/internal/cache"
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
+	"github.com/kubeflow/semantic-operator/internal/serving"
+	"github.com/kubeflow/semantic-operator/internal/serving/auth"
+	"github.com/kubeflow/semantic-operator/internal/serving/exchange"
 )
 
 // This file maps the config catalog onto the runtime option types. The mapping

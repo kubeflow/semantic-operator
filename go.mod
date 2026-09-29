@@ -1,4 +1,4 @@
-module github.com/KubedAI/semantic-operator
+module github.com/kubeflow/semantic-operator
 
 go 1.26.2
 

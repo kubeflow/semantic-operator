@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/KubedAI/semantic-operator/internal/planner"
+	"github.com/kubeflow/semantic-operator/internal/planner"
 )
 
 func modelBlob(t *testing.T, name, version string) []byte {

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/KubedAI/semantic-operator/internal/dbclient"
-	"github.com/KubedAI/semantic-operator/internal/serving/exchange"
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
+	"github.com/kubeflow/semantic-operator/internal/serving/exchange"
 )
 
 // CredentialResolver turns the caller's authenticated identity into the engine

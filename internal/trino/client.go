@@ -15,7 +15,7 @@ import (
 
 	trinodriver "github.com/trinodb/trino-go-client/trino" // registers the "trino" driver
 
-	"github.com/KubedAI/semantic-operator/internal/dbclient"
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
 )
 
 // DefaultPort is the Trino coordinator HTTP port.

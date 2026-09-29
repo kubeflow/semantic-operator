@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/KubedAI/semantic-operator/internal/dbclient"
-	"github.com/KubedAI/semantic-operator/internal/emitter"
-	_ "github.com/KubedAI/semantic-operator/internal/emitter/starrocks"
-	_ "github.com/KubedAI/semantic-operator/internal/emitter/trino"
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
+	"github.com/kubeflow/semantic-operator/internal/emitter"
+	_ "github.com/kubeflow/semantic-operator/internal/emitter/starrocks"
+	_ "github.com/kubeflow/semantic-operator/internal/emitter/trino"
 )
 
 // fakeDB fails queries whose text matches failOn and records every query.

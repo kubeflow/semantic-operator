@@ -20,9 +20,9 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/KubedAI/semantic-operator/internal/dbclient"
-	"github.com/KubedAI/semantic-operator/internal/nlbench"
-	"github.com/KubedAI/semantic-operator/internal/starrocks"
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
+	"github.com/kubeflow/semantic-operator/internal/nlbench"
+	"github.com/kubeflow/semantic-operator/internal/starrocks"
 )
 
 type question struct {

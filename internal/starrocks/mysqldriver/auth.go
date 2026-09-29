@@ -301,7 +301,7 @@ func (mc *mysqlConn) auth(authData []byte, plugin string) ([]byte, error) {
 		// http://dev.mysql.com/doc/refman/5.7/en/pam-authentication-plugin.html
 		return append([]byte(mc.cfg.Passwd), 0), nil
 
-	// MODIFIED by KubedAI (semantic-operator): StarRocks JWT authentication via
+	// MODIFIED by Semantic Operator contributors: StarRocks JWT authentication via
 	// the OpenID Connect client plugin. StarRocks advertises this plugin for a
 	// user created with IDENTIFIED WITH authentication_jwt, and its
 	// JWTAuthenticationProvider reads one capability byte followed by a

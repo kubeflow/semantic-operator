@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/KubedAI/semantic-operator/internal/planner"
+	"github.com/kubeflow/semantic-operator/internal/planner"
 )
 
 func TestPlannerRequestMapsOrderBy(t *testing.T) {

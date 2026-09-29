@@ -88,8 +88,8 @@ Add one blank import for each package to both `cmd/manager/main.go` and
 `cmd/server/main.go`.
 
 ```go
-_ "github.com/KubedAI/semantic-operator/internal/emitter/myengine"
-_ "github.com/KubedAI/semantic-operator/internal/myengine"
+_ "github.com/kubeflow/semantic-operator/internal/emitter/myengine"
+_ "github.com/kubeflow/semantic-operator/internal/myengine"
 ```
 
 That is the entire wiring. At runtime the `engine.type` Helm value selects both halves, and

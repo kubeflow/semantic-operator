@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/KubedAI/semantic-operator/internal/planner"
+	"github.com/kubeflow/semantic-operator/internal/planner"
 )
 
 // ErrRequestTooLarge marks a request or result that exceeds a configured

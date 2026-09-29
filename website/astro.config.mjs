@@ -7,7 +7,7 @@ import { rehypeBaseLinks } from './plugins/base-links.mjs';
 
 // GitHub Pages serves a project repo under /<repo>. Override both when moving
 // to a custom domain: SITE_URL=https://docs.example.com BASE_PATH=/ npm run build
-const SITE = process.env.SITE_URL ?? 'https://kubedai.github.io';
+const SITE = process.env.SITE_URL ?? 'https://kubeflow.github.io';
 const BASE = process.env.BASE_PATH ?? '/semantic-operator';
 
 export default defineConfig({
@@ -24,12 +24,12 @@ export default defineConfig({
     description:
       'A Kubernetes operator and server that compile certified business metrics into deterministic, governed SQL for AI agents, apps, and BI tools.',
     social: [
-      { icon: 'github', label: 'GitHub', href: 'https://github.com/KubedAI/semantic-operator' },
+      { icon: 'github', label: 'GitHub', href: 'https://github.com/kubeflow/semantic-operator' },
     ],
     customCss: ['./src/styles/theme.css'],
     components: { Hero: './src/components/Hero.astro' },
     editLink: {
-      baseUrl: 'https://github.com/KubedAI/semantic-operator/edit/main/website/',
+      baseUrl: 'https://github.com/kubeflow/semantic-operator/edit/main/website/',
     },
     lastUpdated: true,
     tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 3 },

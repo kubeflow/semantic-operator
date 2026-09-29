@@ -3,7 +3,7 @@
 The whole stack on a laptop: Garage, Polaris, StarRocks, DataHub, the operator,
 a local HTTPS gateway, and Keycloak.
 
-**Full documentation: https://kubedai.github.io/semantic-operator/examples/kind**
+**Full documentation: https://kubeflow.github.io/semantic-operator/examples/kind**
 
 The files in this directory are the runnable parts. The general instructions live
 on the docs site. The local HTTPS and identity foundation is documented here.

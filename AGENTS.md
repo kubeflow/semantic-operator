@@ -24,7 +24,7 @@ selects certified metrics/dimensions — it never writes SQL.
 
 ## Module & toolchain
 
-- Go module: `github.com/KubedAI/semantic-operator` (Go 1.26).
+- Go module: `github.com/kubeflow/semantic-operator` (Go 1.26).
 - Kubebuilder/controller-runtime operator (`sigs.k8s.io/controller-runtime`).
 - Key deps: AWS SDK v2 (Glue, Bedrock), `go-sql-driver/mysql` (StarRocks MySQL protocol),
   `redis/go-redis` (Valkey), `modelcontextprotocol/go-sdk` (MCP), OpenTelemetry, Prometheus.

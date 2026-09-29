@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/KubedAI/semantic-operator/api/v1alpha1"
-	"github.com/KubedAI/semantic-operator/internal/governance"
+	"github.com/kubeflow/semantic-operator/api/v1alpha1"
+	"github.com/kubeflow/semantic-operator/internal/governance"
 )
 
 // tenantModel is the shared model with a role whose row filter interpolates a

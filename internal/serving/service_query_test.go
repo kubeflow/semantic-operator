@@ -10,13 +10,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel"
 
-	"github.com/KubedAI/semantic-operator/api/v1alpha1"
-	"github.com/KubedAI/semantic-operator/internal/dbclient"
-	"github.com/KubedAI/semantic-operator/internal/emitter"
-	_ "github.com/KubedAI/semantic-operator/internal/emitter/starrocks"
-	"github.com/KubedAI/semantic-operator/internal/governance"
-	"github.com/KubedAI/semantic-operator/internal/observability"
-	"github.com/KubedAI/semantic-operator/internal/planner"
+	"github.com/kubeflow/semantic-operator/api/v1alpha1"
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
+	"github.com/kubeflow/semantic-operator/internal/emitter"
+	_ "github.com/kubeflow/semantic-operator/internal/emitter/starrocks"
+	"github.com/kubeflow/semantic-operator/internal/governance"
+	"github.com/kubeflow/semantic-operator/internal/observability"
+	"github.com/kubeflow/semantic-operator/internal/planner"
 )
 
 // fakeDB returns a fixed number of rows regardless of the SQL. The refusal

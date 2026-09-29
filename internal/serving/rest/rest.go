@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/KubedAI/semantic-operator/internal/governance"
-	"github.com/KubedAI/semantic-operator/internal/planner"
-	"github.com/KubedAI/semantic-operator/internal/serving"
-	"github.com/KubedAI/semantic-operator/internal/serving/auth"
-	"github.com/KubedAI/semantic-operator/internal/serving/authorization"
+	"github.com/kubeflow/semantic-operator/internal/governance"
+	"github.com/kubeflow/semantic-operator/internal/planner"
+	"github.com/kubeflow/semantic-operator/internal/serving"
+	"github.com/kubeflow/semantic-operator/internal/serving/auth"
+	"github.com/kubeflow/semantic-operator/internal/serving/authorization"
 )
 
 // Identity headers are trusted only when the authenticator runs in header

@@ -56,13 +56,13 @@ Every `make` target lives in this example directory. Clone the repository and
 change into it first, and run all commands below from there:
 
 ```bash
-git clone https://github.com/KubedAI/semantic-operator
+git clone https://github.com/kubeflow/semantic-operator
 cd semantic-operator/examples/stacks/kind/datahub-polaris-starrocks
 ```
 
 ## Offline / one-time fetch
 
-Everything is pinned in [`deploy/versions.lock`](https://github.com/KubedAI/semantic-operator/blob/main/examples/stacks/kind/datahub-polaris-starrocks/deploy/versions.lock).
+Everything is pinned in [`deploy/versions.lock`](https://github.com/kubeflow/semantic-operator/blob/main/examples/stacks/kind/datahub-polaris-starrocks/deploy/versions.lock).
 You fetch the images and Helm charts once. They stay cached on your
 machine. A later cluster rebuild needs no new download.
 

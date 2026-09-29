@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/KubedAI/semantic-operator/internal/governance"
-	"github.com/KubedAI/semantic-operator/internal/planner"
-	"github.com/KubedAI/semantic-operator/internal/serving/authorization"
+	"github.com/kubeflow/semantic-operator/internal/governance"
+	"github.com/kubeflow/semantic-operator/internal/planner"
+	"github.com/kubeflow/semantic-operator/internal/serving/authorization"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

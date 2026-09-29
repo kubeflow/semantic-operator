@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/KubedAI/semantic-operator/internal/planner"
-	"github.com/KubedAI/semantic-operator/internal/serving"
-	"github.com/KubedAI/semantic-operator/internal/serving/authorization"
+	"github.com/kubeflow/semantic-operator/internal/planner"
+	"github.com/kubeflow/semantic-operator/internal/serving"
+	"github.com/kubeflow/semantic-operator/internal/serving/authorization"
 )
 
 // svcWithModel publishes one model so a request reaches body decoding.

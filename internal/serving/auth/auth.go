@@ -27,7 +27,7 @@ import (
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/KubedAI/semantic-operator/internal/governance"
+	"github.com/kubeflow/semantic-operator/internal/governance"
 )
 
 // Mode selects how identity is established.

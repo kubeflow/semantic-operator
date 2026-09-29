@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/KubedAI/semantic-operator/internal/dbclient"
-	"github.com/KubedAI/semantic-operator/internal/starrocks"
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
+	"github.com/kubeflow/semantic-operator/internal/starrocks"
 )
 
 // PathResult is the outcome of one path answering one question.

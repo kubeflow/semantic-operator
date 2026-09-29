@@ -28,12 +28,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/KubedAI/semantic-operator/internal/dbclient"
-	"github.com/KubedAI/semantic-operator/internal/emitter"
-	_ "github.com/KubedAI/semantic-operator/internal/emitter/starrocks"
-	_ "github.com/KubedAI/semantic-operator/internal/emitter/trino"
-	_ "github.com/KubedAI/semantic-operator/internal/starrocks"
-	_ "github.com/KubedAI/semantic-operator/internal/trino"
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
+	"github.com/kubeflow/semantic-operator/internal/emitter"
+	_ "github.com/kubeflow/semantic-operator/internal/emitter/starrocks"
+	_ "github.com/kubeflow/semantic-operator/internal/emitter/trino"
+	_ "github.com/kubeflow/semantic-operator/internal/starrocks"
+	_ "github.com/kubeflow/semantic-operator/internal/trino"
 )
 
 const seed = 20260702 // fixed: data and benchmark ground truth are reproducible

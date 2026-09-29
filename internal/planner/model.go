@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/KubedAI/semantic-operator/api/v1alpha1"
-	"github.com/KubedAI/semantic-operator/internal/planner/expr"
+	"github.com/kubeflow/semantic-operator/api/v1alpha1"
+	"github.com/kubeflow/semantic-operator/internal/planner/expr"
 )
 
 // CompiledModel is the frozen, JSON-serializable artifact the operator

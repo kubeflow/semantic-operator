@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/KubedAI/semantic-operator/internal/serving/authorization"
-	"github.com/KubedAI/semantic-operator/internal/serving/authorization/opa"
-	"github.com/KubedAI/semantic-operator/internal/serving/authorization/ranger"
-	rangerprovider "github.com/KubedAI/semantic-operator/internal/serving/authorization/ranger/provider"
+	"github.com/kubeflow/semantic-operator/internal/serving/authorization"
+	"github.com/kubeflow/semantic-operator/internal/serving/authorization/opa"
+	"github.com/kubeflow/semantic-operator/internal/serving/authorization/ranger"
+	rangerprovider "github.com/kubeflow/semantic-operator/internal/serving/authorization/ranger/provider"
 )
 
 const (
