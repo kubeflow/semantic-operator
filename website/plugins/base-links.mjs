@@ -9,13 +9,9 @@
  * Authors should keep writing root-relative links, because they read well in
  * source and survive a change of base. This plugin does the rewriting at build
  * time so nobody has to remember.
- *
- * Left alone: absolute URLs, protocol-relative URLs, anchors, and anything
- * already carrying the base.
  */
-export function rehypeBaseLinks(base) {
+export function satteriBaseLinks(base) {
   const prefix = base === '/' ? '' : base.replace(/\/$/, '');
-  if (!prefix) return () => () => {};
 
   const needsPrefix = (href) =>
     typeof href === 'string' &&
@@ -24,19 +20,22 @@ export function rehypeBaseLinks(base) {
     !href.startsWith(prefix + '/') &&
     href !== prefix;
 
-  return () => (tree) => {
-    const walk = (node) => {
-      if (node.type === 'element') {
-        if (node.tagName === 'a' && needsPrefix(node.properties?.href)) {
-          node.properties.href = prefix + node.properties.href;
+  return {
+    name: 'base-links',
+    element: {
+      // An empty filter matches every element. Images and other src-bearing
+      // elements need the same treatment as anchors.
+      filter: [],
+      visit(node, ctx) {
+        if (!prefix) return;
+        const props = node.properties ?? {};
+        if (node.tagName === 'a' && needsPrefix(props.href)) {
+          ctx.setProperty(node, 'href', prefix + props.href);
         }
-        // Images and other src-bearing elements need the same treatment.
-        if (needsPrefix(node.properties?.src)) {
-          node.properties.src = prefix + node.properties.src;
+        if (needsPrefix(props.src)) {
+          ctx.setProperty(node, 'src', prefix + props.src);
         }
-      }
-      for (const child of node.children ?? []) walk(child);
-    };
-    walk(tree);
+      },
+    },
   };
 }

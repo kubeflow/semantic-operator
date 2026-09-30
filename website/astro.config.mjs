@@ -3,7 +3,8 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 import mdx from '@astrojs/mdx';
-import { rehypeBaseLinks } from './plugins/base-links.mjs';
+import { satteri } from '@astrojs/markdown-satteri';
+import { satteriBaseLinks } from './plugins/base-links.mjs';
 
 // GitHub Pages serves a project repo under /<repo>. Override both when moving
 // to a custom domain: SITE_URL=https://docs.example.com BASE_PATH=/ npm run build
@@ -16,7 +17,7 @@ export default defineConfig({
   trailingSlash: 'ignore',
   // Root-relative links in markdown are written without the base and rewritten
   // here, so authors do not have to repeat it and a change of base is one edit.
-  markdown: { rehypePlugins: [rehypeBaseLinks(BASE)] },
+  markdown: { processor: satteri({ hastPlugins: [satteriBaseLinks(BASE)] }) },
   integrations: [starlight({
     title: 'Semantic Operator',
     logo: { src: './src/assets/mark.svg' },
