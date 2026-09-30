@@ -14,6 +14,7 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/markdown-satteri": "0.3.4",
     "@astrojs/mdx": "^7.0.3",
     "@astrojs/starlight": "^0.41.4",
     "astro": "^7.1.3"
