@@ -1,0 +1,15 @@
+repos:
+  - repo: local
+    hooks:
+      - id: make-lint
+        name: make lint
+        entry: make lint
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: make-generate
+        name: make generate (generated files are up to date)
+        entry: bash -c 'make generate && git diff --exit-code'
+        language: system
+        pass_filenames: false
+        always_run: true
