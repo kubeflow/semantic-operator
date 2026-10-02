@@ -195,14 +195,13 @@ func assertMetricFilterSQL(t *testing.T, sql string, split bool) {
 		if !strings.Contains(sql, "\nWITH ") {
 			t.Fatalf("split-ratio query is missing CTEs:\n%s", sql)
 		}
-		if strings.Contains(sql, "\nHAVING ") {
+		// CTE bodies are indented, so an indented HAVING is inside a part.
+		if strings.Contains(sql, "\n  HAVING ") {
 			t.Fatalf("split-ratio metric filter was pushed into an aggregate CTE:\n%s", sql)
 		}
-		where := strings.LastIndex(sql, "\nWHERE ")
-		if where < 0 || where > order {
-			t.Fatalf("split-ratio metric filter must be a final WHERE before ORDER BY:\n%s", sql)
+		if !strings.Contains(sql, "\nFROM \"stacked\"") && !strings.Contains(sql, "\nFROM `stacked`") {
+			t.Fatalf("split-ratio parts must be combined from the stacked rows:\n%s", sql)
 		}
-		return
 	}
 
 	group := strings.LastIndex(sql, "\nGROUP BY ")

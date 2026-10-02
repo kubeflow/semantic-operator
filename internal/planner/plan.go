@@ -353,9 +353,16 @@ func Build(cm *CompiledModel, d emitter.Dialect, req Request, id governance.Iden
 	}
 
 	// Partition metrics into inline (single-pass) and split (ratio needing
-	// fan-out-safe two-sided aggregation).
+	// fan-out-safe two-sided aggregation). Each name gets one class, so a
+	// repeated metric cannot read an inline copy and a split copy.
+	reqBase := cloneSet(baseRequired)
+	seen := map[string]bool{}
 	var inline, split []*CompiledMetric
 	for _, m := range metrics {
+		if seen[m.Name] {
+			continue
+		}
+		seen[m.Name] = true
 		if m.Expr.Denominator == nil {
 			inline = append(inline, m)
 			for _, r := range m.Expr.Numerator.Refs {
@@ -363,8 +370,6 @@ func Build(cm *CompiledModel, d emitter.Dialect, req Request, id governance.Iden
 			}
 			continue
 		}
-		// Ratio: try inline. Compute the root the combined query would use
-		// and check both sides are fan-out safe against it.
 		tentative := cloneSet(baseRequired)
 		for _, ds := range m.Expr.Datasets() {
 			tentative[ds] = true
@@ -379,6 +384,33 @@ func Build(cm *CompiledModel, d emitter.Dialect, req Request, id governance.Iden
 		}
 		split = append(split, m)
 	}
+	// A later metric can move the join root and fan out an inline ratio that
+	// was safe when it was classified. Split is always correct, so demote
+	// until the inline set is safe on its own root.
+	for {
+		baseRequired = cloneSet(reqBase)
+		for _, m := range inline {
+			for _, ds := range m.Expr.Datasets() {
+				baseRequired[ds] = true
+			}
+		}
+		root, _, rerr := b.joinTree(baseRequired)
+		if rerr != nil {
+			break // flatQuery reports the missing join path.
+		}
+		var keep []*CompiledMetric
+		for _, m := range inline {
+			if m.Expr.Denominator != nil && !(termSafe(m.Expr.Numerator, root) && termSafe(*m.Expr.Denominator, root)) {
+				split = append(split, m)
+				continue
+			}
+			keep = append(keep, m)
+		}
+		if len(keep) == len(inline) {
+			break
+		}
+		inline = keep
+	}
 
 	role := decision.RoleKey
 	hash := RequestHash(req, governance.IdentityKey(cm.Governance, id))
@@ -392,7 +424,8 @@ func Build(cm *CompiledModel, d emitter.Dialect, req Request, id governance.Iden
 
 	var sql string
 	if len(split) == 0 {
-		sql, err = b.flatQuery(baseRequired, inline, req.Filters, metricFilters, true)
+		// The flat query emits one column per requested metric, repeats included.
+		sql, err = b.flatQuery(baseRequired, metrics, req.Filters, metricFilters, true)
 		if err != nil {
 			return nil, err
 		}

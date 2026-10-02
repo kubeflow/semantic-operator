@@ -239,11 +239,22 @@ WITH `m_store_productivity_num` AS (
           ON `store_sales`.`ss_store_sk` = `store`.`s_store_sk`
   GROUP BY 1
 ), ...
-INNER JOIN `m_store_productivity_den`
-        ON `m_store_productivity_num`.`d0` <=> `m_store_productivity_den`.`d0`
+`stacked` AS (
+  SELECT `d0` AS `d0`, `val` AS `num_store_productivity`, NULL AS `den_store_productivity`
+  FROM `m_store_productivity_num`
+  UNION ALL
+  SELECT `d0` AS `d0`, NULL AS `num_store_productivity`, `val` AS `den_store_productivity`
+  FROM `m_store_productivity_den`
+)
+SELECT `d0` AS `store.s_state`,
+       (MAX(`num_store_productivity`) / NULLIF(MAX(`den_store_productivity`), 0))
+         AS `store_productivity`
+FROM `stacked`
+GROUP BY 1
 ```
 
-StarRocks uses backticks for identifiers and `<=>` for null-safe equality.
+StarRocks uses backticks for identifiers. The final SELECT stacks the two CTEs and groups
+them by state. A state with no sales appears with a NULL ratio.
 
 </details>
 
