@@ -42,8 +42,7 @@ client.
 qualified schema such as `iceberg.semantic_views`. On StarRocks a bare `semantic_views` is
 enough.
 
-Trino SQL uses double-quoted identifiers and `IS NOT DISTINCT FROM` for
-null-safe equality. The planner handles these dialect differences.
+Trino SQL uses double-quoted identifiers. The planner handles these dialect differences.
 
 ## Stage 2. Load the demo data
 
@@ -192,23 +191,32 @@ WITH "m_store_productivity_num" AS (
          SUM("store"."s_number_employees") AS "val"
   FROM "iceberg"."osi_demo"."store" AS "store"
   GROUP BY 1
+),
+"stacked" AS (
+  SELECT "d0" AS "d0", "val" AS "num_store_productivity", NULL AS "den_store_productivity"
+  FROM "m_store_productivity_num"
+  UNION ALL
+  SELECT "d0" AS "d0", NULL AS "num_store_productivity", "val" AS "den_store_productivity"
+  FROM "m_store_productivity_den"
 )
-SELECT "m_store_productivity_num"."d0" AS "store.s_state",
-       "m_store_productivity_num"."val" / NULLIF("m_store_productivity_den"."val", 0)
+SELECT "d0" AS "store.s_state",
+       (MAX("num_store_productivity") / NULLIF(MAX("den_store_productivity"), 0))
          AS "store_productivity"
-FROM "m_store_productivity_num"
-INNER JOIN "m_store_productivity_den"
-        ON "m_store_productivity_num"."d0" IS NOT DISTINCT FROM "m_store_productivity_den"."d0"
+FROM "stacked"
+GROUP BY 1
 ORDER BY 1
 LIMIT 1000
 ```
 
-Double quoted identifiers throughout and `IS NOT DISTINCT FROM` joining the two CTEs. Not
-a backtick anywhere. StarRocks gets backticks and `<=>` for the same model.
+Double quoted identifiers throughout. Not a backtick anywhere. StarRocks gets backticks for
+the same model.
 
 The ratio is split into two CTEs on purpose. Summing headcount across the sales
 join would multiply it by the number of sales rows, so the denominator is
 aggregated separately over `store` alone.
+
+The final SELECT stacks the two CTEs with `UNION ALL` and groups them by state. A state
+that has stores but no sales appears with a NULL ratio.
 
 </details>
 

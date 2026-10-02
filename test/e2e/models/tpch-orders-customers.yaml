@@ -1,0 +1,65 @@
+# TPC-H customers with custkey % 3 = 0 have no orders, so some groups have
+# no activity. Trino's tpch connector needs no data load.
+# Both multi-metric fixtures share dataset, field, and metric names, so one
+# test runs on either engine.
+# Ratio expressions use block style: a flow mapping splits at the NULLIF comma.
+apiVersion: semantic.ossie.io/v1alpha1
+kind: SemanticModel
+metadata:
+  name: tpch-orders-customers
+  namespace: semantic-system
+spec:
+  connection:
+    catalog: tpch
+    database: tiny
+  ossie:
+    name: tpch_orders_customers
+    description: Split-ratio metrics whose sides cover different groups
+    datasets:
+      - name: activity
+        source: orders
+        primary_key: [orderkey]
+        fields:
+          - name: amount
+            expression:
+              dialects: [{ dialect: ANSI_SQL, expression: totalprice }]
+      - name: groups
+        source: customer
+        primary_key: [custkey]
+        fields:
+          - name: label
+            expression:
+              dialects: [{ dialect: ANSI_SQL, expression: name }]
+            dimension: {}
+          - name: weight
+            expression:
+              dialects: [{ dialect: ANSI_SQL, expression: acctbal }]
+    relationships:
+      - name: activity_to_groups
+        from: activity
+        to: groups
+        from_columns: [custkey]
+        to_columns: [custkey]
+    metrics:
+      # Ground truth for each ratio side.
+      - name: total_amount
+        expression:
+          dialects: [{ dialect: ANSI_SQL, expression: SUM(activity.amount) }]
+      - name: total_weight
+        expression:
+          dialects: [{ dialect: ANSI_SQL, expression: SUM(groups.weight) }]
+      - name: amount_per_weight
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: "SUM(activity.amount) / NULLIF(SUM(groups.weight), 0)"
+      - name: weight_per_amount
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: "SUM(groups.weight) / NULLIF(SUM(activity.amount), 0)"
+  governance:
+    defaultRole: analyst
+    roles:
+      - name: analyst
+        allowMetrics: ["*"]

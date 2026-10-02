@@ -17,6 +17,9 @@ type profile struct {
 	maskDim     string // the masked declared dimension, or "" when the engine cannot mask
 	nonDim      string // a readable field with no Ossie dimension declaration
 
+	// multiMetricModel is the ossie model name of the multi-metric fixture.
+	multiMetricModel string
+
 	// setup is the make target (and args) that prepares the engine, data, and
 	// per-user grants before the identity-mode releases are deployed. Trino's
 	// masking dataset is the built-in tpch connector, so it needs no load;
@@ -35,6 +38,8 @@ var profiles = map[string]profile{
 		maskDim:     "orders.clerk",
 		nonDim:      "orders.totalprice",
 		setup:       []string{"trino-deploy"},
+
+		multiMetricModel: "tpch_orders_customers",
 	},
 	"starrocks": {
 		engine:      "starrocks",
@@ -46,5 +51,7 @@ var profiles = map[string]profile{
 		maskDim:     "", // StarRocks has no column masking; denial only.
 		nonDim:      "store_sales.ss_ext_sales_price",
 		setup:       []string{"models-deploy", "KIND_ENGINE_TYPE=starrocks"},
+
+		multiMetricModel: "retail_sales_dates",
 	},
 }

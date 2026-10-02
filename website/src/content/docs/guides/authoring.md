@@ -165,6 +165,7 @@ The metric grammar is small, and `ossiectl validate` checks it.
 - Aggregations: `SUM`, `COUNT`, `COUNT(DISTINCT..)`, `AVG`, `MIN`, `MAX` over a `dataset.field` reference. Every column must be qualified as `dataset.field`.
 - Ratios: `<agg> / <agg>`, optionally with `NULLIF(denominator, 0)`. The emitter wraps the denominator in `NULLIF` anyway.
 - Fan-out safety. If a ratio's denominator aggregates a dimension across a join, like `SUM(store.s_number_employees)` over the sales fact, that dataset needs a `primary_key` so the planner can deduplicate before aggregating. `validate` tells you when it is missing. This is the class of query raw text-to-SQL gets wrong. The planner handles it by construction.
+- Missing groups. Before metric filters apply, a split ratio returns every group that either side has. When a group has no rows on one side, the ratio is NULL for that group. A zero denominator also gives NULL. A metric cannot yet declare that missing activity means zero.
 
 ## Step 4. Add business meaning (`ai_context` and `description`)
 

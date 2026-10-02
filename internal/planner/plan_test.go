@@ -236,8 +236,8 @@ func TestStoreProductivitySplitsOnFanOut(t *testing.T) {
 	if !strings.Contains(sql, "FROM `iceberg`.`osi_demo`.`store` AS `store`") {
 		t.Fatalf("expected denominator rooted at store:\n%s", sql)
 	}
-	if !strings.Contains(sql, "/ NULLIF(`m_store_productivity_den`.`val`, 0)") {
-		t.Fatalf("expected NULLIF on denominator value:\n%s", sql)
+	if !strings.Contains(sql, "(MAX(`num_store_productivity`) / NULLIF(MAX(`den_store_productivity`), 0))") {
+		t.Fatalf("expected NULLIF on the combined denominator value:\n%s", sql)
 	}
 }
 
@@ -685,11 +685,13 @@ func TestCompositeMetricFiltersUseFinalValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(plan.SQL, "HAVING") {
+	// CTE bodies are indented, so an indented HAVING is inside a part.
+	if strings.Contains(plan.SQL, "\n  HAVING") || strings.Count(plan.SQL, "HAVING") != 1 {
 		t.Fatalf("composite filters must not be pushed into aggregate CTEs:\n%s", plan.SQL)
 	}
-	want := "WHERE ((`m_store_productivity_num`.`val` / NULLIF(`m_store_productivity_den`.`val`, 0)) > 2)\n" +
-		"  AND (`base`.`m_total_sales` BETWEEN 100 AND 1000)\n" +
+	want := "FROM `stacked`\nGROUP BY 1\n" +
+		"HAVING ((MAX(`num_store_productivity`) / NULLIF(MAX(`den_store_productivity`), 0)) > 2)\n" +
+		"   AND (MAX(`base_total_sales`) BETWEEN 100 AND 1000)\n" +
 		"ORDER BY 3 DESC\nLIMIT 10"
 	if !strings.Contains(plan.SQL, want) {
 		t.Fatalf("composite filters must use final metric values before order and limit:\n%s", plan.SQL)

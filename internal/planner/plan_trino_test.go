@@ -64,7 +64,7 @@ func TestTrinoCompositeRatioWithRowFilterHasNoBackticks(t *testing.T) {
 		t.Fatalf("backtick leaked into trino SQL:\n%s", plan.SQL)
 	}
 	for _, want := range []string{
-		"IS NOT DISTINCT FROM",       // NullSafeEq on the CTE join
+		"UNION ALL",                  // parts are stacked
 		`"val"`,                      // side-query output column
 		`("store"."s_state" = 'TX')`, // governance row filter, dialect-quoted
 		`"m_store_productivity_num"`, // CTE names quoted by dialect
@@ -135,7 +135,7 @@ func TestTrinoMetricFilterUsesExpandedHavingExpression(t *testing.T) {
 	}
 }
 
-func TestTrinoCompositeMetricFilterUsesFinalCTEValues(t *testing.T) {
+func TestTrinoCompositeMetricFilterUsesFinalValues(t *testing.T) {
 	cm := compiled(t)
 	plan, err := Build(cm, trinoDialect(t), Request{
 		Metrics:       []string{"store_productivity"},
@@ -150,7 +150,7 @@ func TestTrinoCompositeMetricFilterUsesFinalCTEValues(t *testing.T) {
 	if strings.Contains(plan.SQL, "`") {
 		t.Fatalf("backtick leaked into Trino SQL:\n%s", plan.SQL)
 	}
-	want := `WHERE (("m_store_productivity_num"."val" / NULLIF("m_store_productivity_den"."val", 0)) BETWEEN 1.5 AND 3.5)` +
+	want := `HAVING ((MAX("num_store_productivity") / NULLIF(MAX("den_store_productivity"), 0)) BETWEEN 1.5 AND 3.5)` +
 		"\nORDER BY 2 DESC\nLIMIT 4"
 	if !strings.Contains(plan.SQL, want) {
 		t.Fatalf("missing final Trino composite predicate:\n%s", plan.SQL)

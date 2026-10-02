@@ -449,13 +449,22 @@ func (b *builder) sideQuery(t expr.AggTerm, filters []Filter) (string, error) {
 	return renderSelect(b.d, outer, "FROM (\n"+indent(innerSQL)+"\n) AS "+dedup, nil, len(b.dims)), nil
 }
 
-// compositeQuery combines a base single-pass query with one or more split
-// ratio metrics via CTEs joined null-safe on the dimension columns.
+// compositeQuery combines a base query with split ratio metrics. It stacks
+// and groups the parts because a join drops groups that one part lacks, and
+// engines that inline CTEs recompute a CTE referenced twice.
+// A missing side stays NULL, because missing activity is not always zero.
+// MAX is exact because each part has at most one row per group.
 func (b *builder) compositeQuery(baseRequired map[string]bool, inline []*CompiledMetric, firstSplit *CompiledMetric, restSplit []*CompiledMetric, filters []Filter, metricFilters []metricFilterSpec) (string, error) {
-	splits := append([]*CompiledMetric{firstSplit}, restSplit...)
+	// A repeated metric must not duplicate its CTEs.
+	inline = uniqueMetrics(inline)
+	splits := uniqueMetrics(append([]*CompiledMetric{firstSplit}, restSplit...))
 
-	type cte struct{ name, sql string }
-	var ctes []cte
+	// src[i] is renamed to dst[i] in the stacked rows.
+	type part struct {
+		name, sql string
+		src, dst  []string
+	}
+	var parts []part
 	hasBase := len(inline) > 0
 	if hasBase {
 		// Base still needs its own join tree even with only dims + filters.
@@ -463,7 +472,12 @@ func (b *builder) compositeQuery(baseRequired map[string]bool, inline []*Compile
 		if err != nil {
 			return "", err
 		}
-		ctes = append(ctes, cte{"base", sql})
+		p := part{name: "base", sql: sql}
+		for _, m := range inline {
+			p.src = append(p.src, "m_"+m.Name)
+			p.dst = append(p.dst, baseCol(m.Name))
+		}
+		parts = append(parts, p)
 	}
 	for _, m := range splits {
 		num, err := b.sideQuery(m.Expr.Numerator, filters)
@@ -474,71 +488,92 @@ func (b *builder) compositeQuery(baseRequired map[string]bool, inline []*Compile
 		if err != nil {
 			return "", fmt.Errorf("metric %q denominator: %w", m.Name, err)
 		}
-		ctes = append(ctes, cte{"m_" + m.Name + "_num", num}, cte{"m_" + m.Name + "_den", den})
+		parts = append(parts,
+			part{name: "m_" + m.Name + "_num", sql: num, src: []string{"val"}, dst: []string{numCol(m.Name)}},
+			part{name: "m_" + m.Name + "_den", sql: den, src: []string{"val"}, dst: []string{denCol(m.Name)}},
+		)
 	}
 
-	anchor := ctes[0].name
+	var valueCols []string
+	for _, p := range parts {
+		valueCols = append(valueCols, p.dst...)
+	}
+	branches := make([]string, len(parts))
+	for i, p := range parts {
+		var items []string
+		for j := range b.dims {
+			dcol := b.d.QuoteIdent(fmt.Sprintf("d%d", j))
+			items = append(items, dcol+" AS "+dcol)
+		}
+		own := make(map[string]string, len(p.dst))
+		for k, dst := range p.dst {
+			own[dst] = b.d.QuoteIdent(p.src[k])
+		}
+		for _, c := range valueCols {
+			v, ok := own[c]
+			if !ok {
+				v = "NULL"
+			}
+			items = append(items, v+" AS "+b.d.QuoteIdent(c))
+		}
+		branches[i] = "SELECT " + strings.Join(items, ", ") + "\nFROM " + b.d.QuoteIdent(p.name)
+	}
+
 	var sb strings.Builder
 	sb.WriteString("WITH ")
-	for i, c := range ctes {
-		if i > 0 {
-			sb.WriteString(",\n")
-		}
-		sb.WriteString(b.d.QuoteIdent(c.name) + " AS (\n" + indent(c.sql) + "\n)")
+	for _, p := range parts {
+		sb.WriteString(b.d.QuoteIdent(p.name) + " AS (\n" + indent(p.sql) + "\n),\n")
 	}
-	sb.WriteString("\nSELECT ")
+	sb.WriteString(b.d.QuoteIdent("stacked") + " AS (\n" + indent(strings.Join(branches, "\nUNION ALL\n")) + "\n)\n")
 
-	var sel []string
+	var items []selectItem
 	for i, dm := range b.dims {
-		sel = append(sel, b.d.QuoteIdent(anchor)+"."+b.d.QuoteIdent(fmt.Sprintf("d%d", i))+" AS "+b.d.QuoteIdent(dm.Ref.String()))
+		items = append(items, selectItem{Expr: b.d.QuoteIdent(fmt.Sprintf("d%d", i)), Alias: dm.Ref.String()})
 	}
 	// Metric output order follows the request, mixing inline and split.
 	for _, name := range b.req.Metrics {
-		if hasBase && containsMetric(inline, name) {
-			sel = append(sel, b.d.QuoteIdent("base")+"."+b.d.QuoteIdent("m_"+name)+" AS "+b.d.QuoteIdent(name))
-		} else {
-			n := b.d.QuoteIdent("m_"+name+"_num") + "." + b.d.QuoteIdent("val")
-			d := b.d.QuoteIdent("m_"+name+"_den") + "." + b.d.QuoteIdent("val")
-			sel = append(sel, n+" / NULLIF("+d+", 0) AS "+b.d.QuoteIdent(name))
-		}
+		items = append(items, selectItem{Expr: b.combinedMetric(name, hasBase && containsMetric(inline, name)), Alias: name})
 	}
-	sb.WriteString(strings.Join(sel, ",\n       "))
-	sb.WriteString("\nFROM " + b.d.QuoteIdent(anchor))
-	for _, c := range ctes[1:] {
-		if len(b.dims) == 0 {
-			sb.WriteString("\nCROSS JOIN " + b.d.QuoteIdent(c.name))
-			continue
-		}
-		var conds []string
-		for i := range b.dims {
-			dcol := b.d.QuoteIdent(fmt.Sprintf("d%d", i))
-			conds = append(conds, b.d.NullSafeEq(
-				b.d.QuoteIdent(anchor)+"."+dcol,
-				b.d.QuoteIdent(c.name)+"."+dcol,
-			))
-		}
-		sb.WriteString("\nINNER JOIN " + b.d.QuoteIdent(c.name) + " ON " + strings.Join(conds, " AND "))
-	}
+	sb.WriteString(renderSelect(b.d, items, "FROM "+b.d.QuoteIdent("stacked"), nil, len(b.dims)))
+
+	// A filter inside a part would see only one side of a ratio.
 	if len(metricFilters) > 0 {
 		predicates := make([]string, 0, len(metricFilters))
 		for _, filter := range metricFilters {
-			var lhs string
-			if hasBase && containsMetric(inline, filter.Metric.Name) {
-				lhs = b.d.QuoteIdent("base") + "." + b.d.QuoteIdent("m_"+filter.Metric.Name)
-			} else {
-				num := b.d.QuoteIdent("m_"+filter.Metric.Name+"_num") + "." + b.d.QuoteIdent("val")
-				den := b.d.QuoteIdent("m_"+filter.Metric.Name+"_den") + "." + b.d.QuoteIdent("val")
-				lhs = "(" + num + " / NULLIF(" + den + ", 0))"
-			}
+			lhs := b.combinedMetric(filter.Metric.Name, hasBase && containsMetric(inline, filter.Metric.Name))
 			predicate, err := b.renderMetricFilter(filter, lhs)
 			if err != nil {
 				return "", err
 			}
 			predicates = append(predicates, predicate)
 		}
-		sb.WriteString("\nWHERE " + strings.Join(predicates, "\n  AND "))
+		sb.WriteString("\nHAVING " + strings.Join(predicates, "\n   AND "))
 	}
 	return sb.String(), nil
+}
+
+func (b *builder) combinedMetric(name string, inBase bool) string {
+	if inBase {
+		return "MAX(" + b.d.QuoteIdent(baseCol(name)) + ")"
+	}
+	return "(MAX(" + b.d.QuoteIdent(numCol(name)) + ") / NULLIF(MAX(" + b.d.QuoteIdent(denCol(name)) + "), 0))"
+}
+
+// Prefixes keep stacked column names unique across parts.
+func baseCol(metric string) string { return "base_" + metric }
+func numCol(metric string) string  { return "num_" + metric }
+func denCol(metric string) string  { return "den_" + metric }
+
+func uniqueMetrics(ms []*CompiledMetric) []*CompiledMetric {
+	seen := make(map[string]bool, len(ms))
+	out := make([]*CompiledMetric, 0, len(ms))
+	for _, m := range ms {
+		if !seen[m.Name] {
+			seen[m.Name] = true
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 func containsMetric(ms []*CompiledMetric, name string) bool {
