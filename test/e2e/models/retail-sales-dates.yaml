@@ -1,0 +1,65 @@
+# The seeded e2e retail data has calendar dates with no sales, so some groups
+# have no activity.
+# Both multi-metric fixtures share dataset, field, and metric names, so one
+# test runs on either engine.
+# Ratio expressions use block style: a flow mapping splits at the NULLIF comma.
+apiVersion: semantic.ossie.io/v1alpha1
+kind: SemanticModel
+metadata:
+  name: retail-sales-dates
+  namespace: semantic-system
+spec:
+  connection:
+    catalog: default_catalog
+    database: osi_demo
+  ossie:
+    name: retail_sales_dates
+    description: Split-ratio metrics whose sides cover different groups
+    datasets:
+      - name: activity
+        source: store_sales
+        primary_key: [ss_item_sk, ss_ticket_number]
+        fields:
+          - name: amount
+            expression:
+              dialects: [{ dialect: ANSI_SQL, expression: ss_ext_sales_price }]
+      - name: groups
+        source: date_dim
+        primary_key: [d_date_sk]
+        fields:
+          - name: label
+            expression:
+              dialects: [{ dialect: ANSI_SQL, expression: d_date }]
+            dimension: {}
+          - name: weight
+            expression:
+              dialects: [{ dialect: ANSI_SQL, expression: d_moy }]
+    relationships:
+      - name: activity_to_groups
+        from: activity
+        to: groups
+        from_columns: [ss_sold_date_sk]
+        to_columns: [d_date_sk]
+    metrics:
+      # Ground truth for each ratio side.
+      - name: total_amount
+        expression:
+          dialects: [{ dialect: ANSI_SQL, expression: SUM(activity.amount) }]
+      - name: total_weight
+        expression:
+          dialects: [{ dialect: ANSI_SQL, expression: SUM(groups.weight) }]
+      - name: amount_per_weight
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: "SUM(activity.amount) / NULLIF(SUM(groups.weight), 0)"
+      - name: weight_per_amount
+        expression:
+          dialects:
+            - dialect: ANSI_SQL
+              expression: "SUM(groups.weight) / NULLIF(SUM(activity.amount), 0)"
+  governance:
+    defaultRole: analyst
+    roles:
+      - name: analyst
+        allowMetrics: ["*"]

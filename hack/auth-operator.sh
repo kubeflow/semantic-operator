@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Deploy the operator in one engine identity mode and publish the identity
-# model. AUTH_IDENTITY_MODE selects the mode (static, passthrough, exchange) and
+# Deploy the operator in one engine identity mode and publish the e2e models.
+# AUTH_IDENTITY_MODE selects the mode (static, passthrough, exchange) and
 # KIND_ENGINE_TYPE selects the engine (trino or starrocks). The engine
 # credentials are created in the target namespace, so this runs standalone for a
 # single mode or once per namespace from the e2e orchestrator.
@@ -28,14 +28,16 @@ case "$ENGINE_TYPE" in
 trino)
   ENGINE_DEPLOY=trino
   BASE="$VALUES_DIR/auth.yaml"
-  MODEL="$ROOT_DIR/test/e2e/auth/models/tpch-orders.yaml"
-  MODEL_CR=tpch-orders
+  MODELS=("$ROOT_DIR/test/e2e/auth/models/tpch-orders.yaml"
+    "$ROOT_DIR/test/e2e/models/tpch-orders-customers.yaml")
+  MODEL_CRS=(tpch-orders tpch-orders-customers)
   ;;
 starrocks)
   ENGINE_DEPLOY=starrocks
   BASE="$VALUES_DIR/auth-starrocks.yaml"
-  MODEL="$ROOT_DIR/test/e2e/auth/models/retail-identity.yaml"
-  MODEL_CR=retail-identity
+  MODELS=("$ROOT_DIR/test/e2e/auth/models/retail-identity.yaml"
+    "$ROOT_DIR/test/e2e/models/retail-sales-dates.yaml")
+  MODEL_CRS=(retail-identity retail-sales-dates)
   ;;
 *)
   echo "unsupported KIND_ENGINE_TYPE=$ENGINE_TYPE (want trino or starrocks)" >&2
@@ -95,8 +97,12 @@ kind load docker-image "$IMAGE_BASE/manager:$IMAGE_TAG" "$IMAGE_BASE/server:$IMA
   "deployment/$RELEASE_NAME-manager" "deployment/$RELEASE_NAME-server"
 "${KUBECTL[@]}" rollout status "deployment/$RELEASE_NAME-server" --timeout=2m
 
-# The model manifest pins the infra namespace; drop it and apply into $NAMESPACE.
-sed '/^  namespace: semantic-system$/d' "$MODEL" | "${KUBECTL[@]}" apply -f -
-"${KUBECTL[@]}" wait --for=condition=Published "semanticmodel/$MODEL_CR" --timeout=2m
+# The model manifests pin the infra namespace; drop it and apply into $NAMESPACE.
+for model in "${MODELS[@]}"; do
+  sed '/^  namespace: semantic-system$/d' "$model" | "${KUBECTL[@]}" apply -f -
+done
+for cr in "${MODEL_CRS[@]}"; do
+  "${KUBECTL[@]}" wait --for=condition=Published "semanticmodel/$cr" --timeout=2m
+done
 
-echo "operator ready in $MODE mode ($ENGINE_TYPE); $MODEL_CR published in $NAMESPACE"
+echo "operator ready in $MODE mode ($ENGINE_TYPE); ${MODEL_CRS[*]} published in $NAMESPACE"

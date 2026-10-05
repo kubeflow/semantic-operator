@@ -96,6 +96,15 @@ The planner turns the authorized request into one SQL statement in three concept
 - **Fan-out safety.** If a ratio metric's denominator aggregates a dimension across a join,
   summing it directly would multiply it by the number of fact rows. The planner splits those
   into separate aggregations and deduplicates on the dimension's primary key.
+- **Combining split aggregations.** The planner stacks the separate aggregations with
+  `UNION ALL` and groups the stacked rows by the requested dimensions. The engine computes
+  each aggregation once.
+- **Missing groups.** Before metric filters apply, the result has every group that any
+  aggregation in the request has.
+  A split ratio cannot remove a group that another metric returns. When one side of a ratio
+  has no rows for a group, the ratio is NULL for that group.
+- **Zero denominators.** A ratio whose denominator is zero is NULL, because the denominator
+  is always wrapped in `NULLIF(denominator, 0)`.
 - **Governance in SQL.** The role's row filters are compiled into the statement, conjoined
   within a role and unioned across the roles that authorized the request. A predicate may
   interpolate a caller claim to express a rule like "each user sees their own region."

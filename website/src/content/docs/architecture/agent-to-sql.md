@@ -83,7 +83,9 @@ When `query_metric` arrives, the server follows the same fixed pipeline every ti
    before any SQL exists.
 3. It finds the smallest join tree needed by the requested metrics, dimensions, and filters.
 4. It expands the stored metric definitions into aggregations. Ratio metrics use separate,
-   primary-key-deduplicated aggregations when a direct join would multiply one side.
+   primary-key-deduplicated aggregations when a direct join would multiply one side. The
+   planner stacks these aggregations and groups them once. A group that one side lacks stays
+   in the result with a NULL ratio, unless a metric filter removes it.
 5. It adds dimensions, filters, time grain, row policies, ordering, and the limit.
 6. It asks the Trino or StarRocks dialect emitter to render exactly one SQL statement.
 7. It executes that statement and returns the rows together with the SQL, model version, and
