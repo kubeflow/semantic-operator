@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -150,7 +151,8 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, maxBytes int64, dst any)
 		}
 		return fmt.Errorf("invalid JSON body: %w", err)
 	}
-	if dec.More() {
+	// More reports false before a stray } or ], so decode again and require EOF.
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
 		return errors.New("body must contain exactly one JSON object")
 	}
 	return nil

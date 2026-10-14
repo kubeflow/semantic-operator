@@ -65,12 +65,18 @@ func TestUnknownFieldIsRejected(t *testing.T) {
 // malformed or smuggled second request.
 func TestTrailingJSONDocumentIsRejected(t *testing.T) {
 	h := Handler(svcWithModel(t, serving.Limits{}), nil, serving.StaticResolver())
-	w := post(t, h, `{"metrics":["revenue"]}{"metrics":["payroll_cost"]}`)
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400. body: %s", w.Code, w.Body.String())
-	}
-	if !strings.Contains(w.Body.String(), "exactly one JSON object") {
-		t.Fatalf("unexpected error: %s", w.Body.String())
+	for _, body := range []string{
+		`{"metrics":["revenue"]}{"metrics":["payroll_cost"]}`,
+		`{"metrics":["revenue"]}}`,
+		`{"metrics":["revenue"]}]]`,
+	} {
+		w := post(t, h, body)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("%s: status = %d, want 400. body: %s", body, w.Code, w.Body.String())
+		}
+		if !strings.Contains(w.Body.String(), "exactly one JSON object") {
+			t.Fatalf("%s: unexpected error: %s", body, w.Body.String())
+		}
 	}
 }
 
