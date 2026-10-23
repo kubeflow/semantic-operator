@@ -2,7 +2,6 @@ package serving
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"testing"
@@ -97,23 +96,37 @@ func rowLimitService(t *testing.T, rows int) *Service {
 }
 
 // A request that names no limit and whose result is larger than the default is
-// refused, not truncated. This is the behavior the whole probe exists for: a
-// caller cannot tell a silent prefix from a complete answer.
-func TestQueryRefusesWhenDefaultLimitIsExceeded(t *testing.T) {
+// reported with hasMore, not silently truncated. The probe row proves a
+// larger result exists. The caller gets the first default rows plus the flag,
+// so an agent can disclose incompleteness instead of presenting a prefix as a
+// complete answer.
+func TestQueryReportsTruncationAtDefaultLimit(t *testing.T) {
 	def := DefaultLimits().DefaultRowLimit
 	svc := rowLimitService(t, def+1)
 	m := rowLimitModel(t)
 
-	_, err := svc.Query(context.Background(), "test", m, planner.Request{Metrics: []string{"revenue"}},
+	res, err := svc.Query(context.Background(), "test", m, planner.Request{Metrics: []string{"revenue"}},
 		governance.Single("analyst"), dbclient.EngineCredential{})
-	if !errors.Is(err, ErrResultIncomplete) {
-		t.Fatalf("want ErrResultIncomplete, got %v", err)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if res.RowCount != def {
+		t.Fatalf("rowCount = %d, want the first %d", res.RowCount, def)
+	}
+	if res.Limit != def {
+		t.Fatalf("limit = %d, want the effective default %d", res.Limit, def)
+	}
+	if !res.HasMore {
+		t.Fatal("hasMore = false, want true when more rows exist")
+	}
+	if len(res.Rows) != def {
+		t.Fatalf("len(rows) = %d, want the probe row stripped to %d", len(res.Rows), def)
 	}
 }
 
-// A defaulted request whose result fits inside the default is returned in full.
-// The probe row is only a detector, so a complete result at exactly the default
-// is not refused.
+// A defaulted request whose result fits inside the default is returned in full
+// with hasMore false. The probe row is only a detector: a complete result at
+// exactly the default reports no truncation.
 func TestQueryReturnsCompleteResultAtTheDefault(t *testing.T) {
 	def := DefaultLimits().DefaultRowLimit
 	svc := rowLimitService(t, def)
@@ -127,23 +140,56 @@ func TestQueryReturnsCompleteResultAtTheDefault(t *testing.T) {
 	if res.RowCount != def {
 		t.Fatalf("rowCount = %d, want the full %d", res.RowCount, def)
 	}
+	if res.Limit != def {
+		t.Fatalf("limit = %d, want the effective default %d", res.Limit, def)
+	}
+	if res.HasMore {
+		t.Fatal("hasMore = true, want false for a complete result")
+	}
 }
 
-// An explicit limit is the caller's stated intent, so a result that fills it is
-// returned without a refusal even though it may be truncated. Only a defaulted
-// request is refused.
-func TestQueryHonorsExplicitLimitWithoutRefusing(t *testing.T) {
-	def := DefaultLimits().DefaultRowLimit
-	svc := rowLimitService(t, def+1)
+// An explicit limit that the result exceeds is reported with hasMore. The
+// probe row is stripped, so the caller sees exactly the rows requested plus
+// the knowledge that more exist.
+func TestQueryReportsTruncationAtExplicitLimit(t *testing.T) {
+	svc := rowLimitService(t, 51)
 	m := rowLimitModel(t)
 
 	res, err := svc.Query(context.Background(), "test", m,
-		planner.Request{Metrics: []string{"revenue"}, Limit: def + 1},
+		planner.Request{Metrics: []string{"revenue"}, Limit: 50},
 		governance.Single("analyst"), dbclient.EngineCredential{})
 	if err != nil {
 		t.Fatalf("query with explicit limit: %v", err)
 	}
-	if res.RowCount != def+1 {
-		t.Fatalf("rowCount = %d, want %d", res.RowCount, def+1)
+	if res.RowCount != 50 {
+		t.Fatalf("rowCount = %d, want 50", res.RowCount)
+	}
+	if res.Limit != 50 {
+		t.Fatalf("limit = %d, want the requested 50", res.Limit)
+	}
+	if !res.HasMore {
+		t.Fatal("hasMore = false, want true when the result exceeds the limit")
+	}
+}
+
+// An explicit limit that the result fits inside reports no truncation.
+func TestQueryReturnsCompleteResultBelowExplicitLimit(t *testing.T) {
+	svc := rowLimitService(t, 30)
+	m := rowLimitModel(t)
+
+	res, err := svc.Query(context.Background(), "test", m,
+		planner.Request{Metrics: []string{"revenue"}, Limit: 50},
+		governance.Single("analyst"), dbclient.EngineCredential{})
+	if err != nil {
+		t.Fatalf("query with explicit limit: %v", err)
+	}
+	if res.RowCount != 30 {
+		t.Fatalf("rowCount = %d, want 30", res.RowCount)
+	}
+	if res.Limit != 50 {
+		t.Fatalf("limit = %d, want the requested 50", res.Limit)
+	}
+	if res.HasMore {
+		t.Fatal("hasMore = true, want false for a complete result")
 	}
 }

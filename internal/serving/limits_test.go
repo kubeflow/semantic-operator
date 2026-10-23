@@ -11,7 +11,7 @@ import (
 // A request with no limit used to compile to SQL with no LIMIT clause, so one
 // high-cardinality grouping could return the whole table. It now compiles with
 // one row past the default. That extra row is the probe Service.Query uses to
-// tell a complete result from a larger one it must refuse.
+// tell a complete result from a larger one it must flag with hasMore.
 func TestUnsetLimitGetsTheDefaultProbe(t *testing.T) {
 	got, err := Limits{}.apply(planner.Request{Metrics: []string{"revenue"}})
 	if err != nil {
@@ -19,6 +19,19 @@ func TestUnsetLimitGetsTheDefaultProbe(t *testing.T) {
 	}
 	if want := DefaultLimits().DefaultRowLimit + 1; got.Limit != want {
 		t.Fatalf("limit = %d, want the default plus the probe row %d", got.Limit, want)
+	}
+}
+
+// An explicit limit compiles with one probe row past it, so Query can report
+// truncation instead of silently returning a prefix. The probe row is
+// stripped before the response.
+func TestExplicitLimitGetsTheProbeRow(t *testing.T) {
+	got, err := Limits{}.apply(planner.Request{Metrics: []string{"revenue"}, Limit: 50})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if got.Limit != 51 {
+		t.Fatalf("limit = %d, want the explicit limit plus the probe row 51", got.Limit)
 	}
 }
 

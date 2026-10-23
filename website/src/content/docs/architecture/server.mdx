@@ -116,8 +116,13 @@ match the target. Row-filter authoring is covered in [Authoring a model](/guides
 ### Execute and report
 
 The server runs one statement and returns the rows, the exact SQL, the model
-version, and a request hash. Every statement begins with a comment holding those same three
-values, so a query in the engine's log traces back to the request that caused it.
+version, a request hash, the effective limit, and a hasMore flag. The statement
+fetches one row past the effective limit. That extra row proves truncation and
+is removed before the response. When hasMore is true the rows are the first
+limit rows only. Disclose the incompleteness and narrow the request instead of
+presenting a prefix as a complete answer. Every statement begins with a comment
+holding the model, the version, and the request hash, so a query in the
+engine's log traces back to the request that caused it.
 
 The same request, from the same identity, against the same model version, produces byte
 identical SQL every time. Identity includes the principal, separate groups and roles, and all
@@ -126,9 +131,10 @@ but with different tenants compile to different SQL and never share a cached pla
 
 ### What bounds a request
 
-The server runs in a fixed-size pod, so every part of a request has a limit, and a request
-over a limit is refused rather than trimmed. Because there is no pagination yet, a truncated
-result could not be told apart from a complete one. The specific limits, their defaults, and
+The server runs in a fixed-size pod, so every part of a request has a limit. A request
+over a shape or size bound is refused. Row count truncation is reported with the
+hasMore flag instead, because there is no pagination yet and a silent prefix
+cannot be told apart from a complete result. The specific limits, their defaults, and
 the memory budget that ties concurrency to result size are in
 [Configuration and deployment](/reference/configuration).
 

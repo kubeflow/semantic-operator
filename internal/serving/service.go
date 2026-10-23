@@ -82,20 +82,29 @@ type ModelInfo struct {
 }
 
 // QueryResult is the adapter-facing result envelope. SQL is always included:
-// provenance is part of the product.
+// provenance is part of the product. Limit is the effective row limit for
+// the request and HasMore reports whether more rows exist beyond it.
 type QueryResult struct {
-	Columns                  []string `json:"columns"`
-	Rows                     [][]any  `json:"rows"`
-	RowCount                 int      `json:"rowCount"`
-	SQL                      string   `json:"sql"`
-	Model                    string   `json:"model"`
-	ModelVersion             string   `json:"modelVersion"`
-	RequestHash              string   `json:"requestHash"`
-	Role                     string   `json:"role,omitempty"`
-	AuthorizationFingerprint string   `json:"authorizationFingerprint,omitempty"`
-	CachedPlan               bool     `json:"cachedPlan"`
-	CachedResult             bool     `json:"cachedResult"`
-	ElapsedMs                int64    `json:"elapsedMs"`
+	Columns []string `json:"columns"`
+	Rows    [][]any  `json:"rows"`
+	// RowCount is the number of rows returned, after the probe row is removed.
+	RowCount int `json:"rowCount"`
+	// Limit is the effective row limit. A request with no limit reports the
+	// default.
+	Limit int `json:"limit"`
+	// HasMore is true when the query matched more rows than Limit. The
+	// response holds the first Limit rows. Disclose this instead of
+	// presenting a prefix as a complete answer.
+	HasMore                  bool   `json:"hasMore"`
+	SQL                      string `json:"sql"`
+	Model                    string `json:"model"`
+	ModelVersion             string `json:"modelVersion"`
+	RequestHash              string `json:"requestHash"`
+	Role                     string `json:"role,omitempty"`
+	AuthorizationFingerprint string `json:"authorizationFingerprint,omitempty"`
+	CachedPlan               bool   `json:"cachedPlan"`
+	CachedResult             bool   `json:"cachedResult"`
+	ElapsedMs                int64  `json:"elapsedMs"`
 }
 
 // ErrUnknownModel distinguishes 404 from 400 in adapters.
@@ -318,13 +327,20 @@ func (s *Service) Query(ctx context.Context, adapter string, m *planner.Compiled
 	}
 	span.SetAttributes(attribute.String("semantic.request_hash", plan.RequestHash))
 
-	defaulted := req.Limit == 0
-	reportLimit := s.Limits.withDefaults().DefaultRowLimit
+	// effectiveLimit is what the caller asked for, or the default when no
+	// limit was named. plan.SQL carries one probe row past it, so a result
+	// longer than the effective limit proves truncation.
+	lim := s.Limits.withDefaults()
+	effectiveLimit := req.Limit
+	if effectiveLimit == 0 {
+		effectiveLimit = lim.DefaultRowLimit
+	}
 
 	res := &QueryResult{
 		SQL: plan.SQL, Model: plan.Model, ModelVersion: plan.ModelVersion,
 		RequestHash: plan.RequestHash, Role: plan.Role,
 		AuthorizationFingerprint: plan.AuthorizationFingerprint, CachedPlan: cachedPlan,
+		Limit: effectiveLimit,
 	}
 	// Under identity passthrough the engine enforces per-user row and column
 	// policy, so identical SQL can return different rows per caller. Partition
@@ -345,15 +361,21 @@ func (s *Service) Query(ctx context.Context, adapter string, m *planner.Compiled
 			var cached struct {
 				Columns []string `json:"columns"`
 				Rows    [][]any  `json:"rows"`
+				Limit   int      `json:"limit"`
+				HasMore bool     `json:"hasMore"`
 			}
 			if err := json.Unmarshal(blob, &cached); err == nil {
-				if defaulted && len(cached.Rows) > reportLimit {
-					s.Metrics.Requests.WithLabelValues(adapter, m.Name, "result_incomplete").Inc()
-					return nil, fmt.Errorf("%w: the result has more than %d rows", ErrResultIncomplete, reportLimit)
-				}
 				s.Metrics.ResultCacheHits.Inc()
 				res.Columns, res.Rows, res.CachedResult = cached.Columns, cached.Rows, true
 				res.RowCount = len(cached.Rows)
+				// Entries written before the limit flag existed carry no
+				// metadata. They predate truncation reporting and hold
+				// complete results, so report the current effective limit
+				// with no truncation rather than a zero value.
+				res.Limit, res.HasMore = cached.Limit, cached.HasMore
+				if res.Limit == 0 {
+					res.Limit = effectiveLimit
+				}
 				res.ElapsedMs = time.Since(start).Milliseconds()
 				s.Metrics.Requests.WithLabelValues(adapter, m.Name, "ok").Inc()
 				return res, nil
@@ -375,22 +397,25 @@ func (s *Service) Query(ctx context.Context, adapter string, m *planner.Compiled
 		rows = [][]any{}
 	}
 
-	if defaulted && len(rows) > reportLimit {
-		s.Metrics.Requests.WithLabelValues(adapter, m.Name, "result_incomplete").Inc()
-		return nil, fmt.Errorf("%w: the result has more than %d rows", ErrResultIncomplete, reportLimit)
+	// The plan SQL fetches one probe row past the effective limit. Its
+	// presence proves truncation. Strip it before responding so the caller
+	// never sees more than requested.
+	hasMore := len(rows) > effectiveLimit
+	if hasMore {
+		rows = rows[:effectiveLimit]
 	}
 	// The engine client already abandons an oversized result while scanning,
 	// which is the only place the allocation can actually be prevented. This
 	// second check is defence in depth for a client that does not enforce the
 	// ceiling, and it is what decides whether the result may be cached.
-	lim := s.Limits.withDefaults()
-	blob, marshalErr := json.Marshal(map[string]any{"columns": cols, "rows": rows})
+	blob, marshalErr := json.Marshal(map[string]any{"columns": cols, "rows": rows, "limit": effectiveLimit, "hasMore": hasMore})
 	if marshalErr == nil && len(blob) > lim.MaxResultBytes {
 		s.Metrics.Requests.WithLabelValues(adapter, m.Name, "result_too_large").Inc()
 		return nil, fmt.Errorf("%w: result is %d bytes, the maximum is %d; narrow the request or lower the limit",
 			ErrRequestTooLarge, len(blob), lim.MaxResultBytes)
 	}
 	res.Columns, res.Rows, res.RowCount = cols, rows, len(rows)
+	res.HasMore = hasMore
 	// Caching is an optimization, so an oversized result is served and simply
 	// not cached.
 	if cacheable && marshalErr == nil && len(blob) <= lim.MaxCacheEntryBytes {

@@ -77,6 +77,8 @@ type queryOut struct {
 	Columns                  []string `json:"columns"`
 	Rows                     [][]any  `json:"rows"`
 	RowCount                 int      `json:"rowCount"`
+	Limit                    int      `json:"limit"`
+	HasMore                  bool     `json:"hasMore"`
 	SQL                      string   `json:"sql"`
 	Model                    string   `json:"model"`
 	ModelVersion             string   `json:"modelVersion"`
@@ -155,7 +157,10 @@ func NewServer(svc *serving.Service, version string, resolver serving.Credential
 			"or Top-N questions, order by the requested metric and add every requested " +
 			"dimension to guarantee stable ties before setting the limit. The semantic planner compiles " +
 			"the request into deterministic, governed SQL and executes it on the configured " +
-			"query engine. The response includes the SQL for provenance. Do not write SQL yourself.",
+			"query engine. The response includes the SQL for provenance and a hasMore flag " +
+			"with the effective limit. When hasMore is true the rows are the first limit " +
+			"rows only: disclose the incompleteness and narrow the request instead of " +
+			"presenting a prefix as a complete answer. Do not write SQL yourself.",
 	}, func(ctx context.Context, req *sdk.CallToolRequest, in queryIn) (*sdk.CallToolResult, queryOut, error) {
 		m, err := svc.Resolve(in.Model, serving.IdentityFrom(ctx))
 		if err != nil {
@@ -173,6 +178,7 @@ func NewServer(svc *serving.Service, version string, resolver serving.Credential
 		}
 		return nil, queryOut{
 			Columns: res.Columns, Rows: res.Rows, RowCount: res.RowCount,
+			Limit: res.Limit, HasMore: res.HasMore,
 			SQL: res.SQL, Model: res.Model, ModelVersion: res.ModelVersion,
 			RequestHash: res.RequestHash, AuthorizationFingerprint: res.AuthorizationFingerprint,
 		}, nil
