@@ -2,6 +2,7 @@ package expr
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -52,6 +53,37 @@ func TestParseRatioWithNullif(t *testing.T) {
 	}
 	if m.Denominator == nil || m.Denominator.Func != "SUM" || m.Denominator.Scalar != "store.s_number_employees" {
 		t.Fatalf("unexpected parse: %+v", m)
+	}
+}
+
+func TestParseRatioWithEquivalentNullifZeroGuards(t *testing.T) {
+	for _, zero := range []string{"0", "-0", "+0", "0.0", ".0", "00.000", "0e10", "-0.0E-3"} {
+		t.Run(zero, func(t *testing.T) {
+			expression := "SUM(sales.amount) / NULLIF(SUM(store.employees), " + zero + ")"
+			if _, err := Parse(expression); err != nil {
+				t.Fatalf("zero guard %q was rejected: %v", zero, err)
+			}
+		})
+	}
+}
+
+func TestParseRatioRejectsUnsupportedNullifGuards(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args string
+		want string
+	}{
+		{name: "missing", args: "", want: "missing"},
+		{name: "nonnumeric", args: "foo", want: "numeric zero"},
+		{name: "nonzero", args: "1", want: "numeric zero"},
+		{name: "extra argument", args: "0, 1", want: "exactly two arguments"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			expression := "SUM(sales.amount) / NULLIF(SUM(store.employees), " + tc.args + ")"
+			if _, err := Parse(expression); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("Parse error = %v, want message containing %q", err, tc.want)
+			}
+		})
 	}
 }
 

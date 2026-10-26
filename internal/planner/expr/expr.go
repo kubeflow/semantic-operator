@@ -109,15 +109,70 @@ func (p *parser) parseDenom() (AggTerm, error) {
 			return AggTerm{}, fmt.Errorf("expected ',' in NULLIF at offset %d", p.pos)
 		}
 		p.skipSpace()
-		p.readNumber()
-		p.skipSpace()
+		argStart := p.pos
+		for !p.eof() && p.in[p.pos] != ',' && p.in[p.pos] != ')' {
+			p.pos++
+		}
+		guard := strings.TrimSpace(p.in[argStart:p.pos])
+		if p.consume(',') {
+			extraStart := p.pos
+			for !p.eof() && p.in[p.pos] != ')' {
+				p.pos++
+			}
+			extra := strings.TrimSpace(p.in[extraStart:p.pos])
+			return AggTerm{}, fmt.Errorf("NULLIF expects exactly two arguments; extra argument %q is unsupported", extra)
+		}
 		if !p.consume(')') {
 			return AggTerm{}, fmt.Errorf("expected ')' closing NULLIF at offset %d", p.pos)
+		}
+		if guard == "" {
+			return AggTerm{}, fmt.Errorf("NULLIF second argument is missing; expected numeric zero")
+		}
+		if !numericZero(guard) {
+			return AggTerm{}, fmt.Errorf("NULLIF second argument %q must be numeric zero", guard)
 		}
 		return t, nil
 	}
 	p.pos = save
 	return p.parseTerm()
+}
+
+func numericZero(s string) bool {
+	i := 0
+	if i < len(s) && (s[i] == '+' || s[i] == '-') {
+		i++
+	}
+	digits, nonzero := 0, false
+	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+		digits++
+		nonzero = nonzero || s[i] != '0'
+		i++
+	}
+	if i < len(s) && s[i] == '.' {
+		i++
+		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+			digits++
+			nonzero = nonzero || s[i] != '0'
+			i++
+		}
+	}
+	if digits == 0 {
+		return false
+	}
+	if i < len(s) && (s[i] == 'e' || s[i] == 'E') {
+		i++
+		if i < len(s) && (s[i] == '+' || s[i] == '-') {
+			i++
+		}
+		exponentStart := i
+		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+			i++
+		}
+		if i == exponentStart {
+			return false
+		}
+	}
+	return i == len(s) && !nonzero
 }
 
 func (p *parser) parseTerm() (AggTerm, error) {
@@ -201,14 +256,6 @@ func (p *parser) readIdent() string {
 	p.skipSpace()
 	start := p.pos
 	for p.pos < len(p.in) && (isIdentChar(p.in[p.pos])) {
-		p.pos++
-	}
-	return p.in[start:p.pos]
-}
-
-func (p *parser) readNumber() string {
-	start := p.pos
-	for p.pos < len(p.in) && (p.in[p.pos] >= '0' && p.in[p.pos] <= '9' || p.in[p.pos] == '.' || p.in[p.pos] == '-') {
 		p.pos++
 	}
 	return p.in[start:p.pos]

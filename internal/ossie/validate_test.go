@@ -155,6 +155,26 @@ func TestValidateRatioDenominatorNeedsPK(t *testing.T) {
 	wantErr(t, s, "no primary_key")
 }
 
+func TestValidateRejectsNonzeroNullifGuardWithMetricName(t *testing.T) {
+	s := validSpec()
+	s.Ossie.Metrics[1].Expression.Dialects[0].Expression =
+		"SUM(store_sales.ss_ext_sales_price) / NULLIF(COUNT(customer.c_customer_sk), 1)"
+	wantErr(t, s, `metric "clv": NULLIF second argument "1" must be numeric zero`)
+}
+
+func TestValidateAcceptsEquivalentNullifZeroGuards(t *testing.T) {
+	for _, zero := range []string{"0", "-0", "+0", "0.0", "00.000", "0e10"} {
+		t.Run(zero, func(t *testing.T) {
+			s := validSpec()
+			s.Ossie.Metrics[1].Expression.Dialects[0].Expression =
+				"SUM(store_sales.ss_ext_sales_price) / NULLIF(COUNT(customer.c_customer_sk), " + zero + ")"
+			if err := ValidateSpec(s); err != nil {
+				t.Fatalf("zero guard %q was rejected: %v", zero, err)
+			}
+		})
+	}
+}
+
 func TestValidateGovernanceBadDenyField(t *testing.T) {
 	s := validSpec()
 	s.Governance.Roles[0].DenyFields = []string{"not_a_ref"}
