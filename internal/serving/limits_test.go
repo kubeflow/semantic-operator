@@ -140,3 +140,36 @@ func TestFilterLimitCombinesRowAndMetricFilters(t *testing.T) {
 		t.Fatalf("combined filter count over the limit: want ErrRequestTooLarge, got %v", err)
 	}
 }
+
+func TestBooleanFilterGroupsRespectRequestBounds(t *testing.T) {
+	req := planner.Request{
+		Metrics: []string{"revenue"},
+		Filter: &planner.Filter{Or: []planner.Filter{
+			{Field: "account.segment", Op: "=", Value: "Enterprise"},
+			{And: []planner.Filter{
+				{Field: "account.region", Op: "IN", Values: []any{"EMEA", "APAC"}},
+				{Field: "account.owner", Op: "IS NULL"},
+			}},
+		}},
+	}
+	if _, err := (Limits{MaxFilters: 3, MaxFilterValues: 2}).apply(req); err != nil {
+		t.Fatalf("filter tree at configured limits was rejected: %v", err)
+	}
+	if _, err := (Limits{MaxFilters: 2}).apply(req); !errors.Is(err, ErrRequestTooLarge) {
+		t.Fatalf("nested predicate count must be bounded, got %v", err)
+	}
+	if _, err := (Limits{MaxFilterValues: 1}).apply(req); !errors.Is(err, ErrRequestTooLarge) {
+		t.Fatalf("nested value count must be bounded, got %v", err)
+	}
+
+	deep := planner.Filter{Field: "account.owner", Op: "IS NULL"}
+	for range planner.MaxFilterDepth {
+		deep = planner.Filter{And: []planner.Filter{deep}}
+	}
+	if _, err := (Limits{}).apply(planner.Request{
+		Metrics: []string{"revenue"},
+		Filter:  &deep,
+	}); !errors.Is(err, ErrRequestTooLarge) {
+		t.Fatalf("filter nesting depth must be bounded, got %v", err)
+	}
+}

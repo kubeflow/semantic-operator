@@ -152,14 +152,16 @@ func (l Limits) apply(req planner.Request) (planner.Request, error) {
 	if n := len(req.Dimensions); n > l.MaxDimensions {
 		return req, fmt.Errorf("%w: %d dimensions requested, the maximum is %d", ErrRequestTooLarge, n, l.MaxDimensions)
 	}
-	if n := len(req.Filters) + len(req.MetricFilters); n > l.MaxFilters {
+	rowFilterCount, filterValueCount, _, err := planner.FilterStats(req.Filters, req.Filter)
+	if err != nil {
+		return req, fmt.Errorf("%w: %v", ErrRequestTooLarge, err)
+	}
+	if n := rowFilterCount + len(req.MetricFilters); n > l.MaxFilters {
 		return req, fmt.Errorf("%w: %d row and metric filters requested in total, the maximum is %d", ErrRequestTooLarge, n, l.MaxFilters)
 	}
-	for _, f := range req.Filters {
-		if n := len(f.Values); n > l.MaxFilterValues {
-			return req, fmt.Errorf("%w: filter on %q carries %d values, the maximum is %d",
-				ErrRequestTooLarge, f.Field, n, l.MaxFilterValues)
-		}
+	if filterValueCount > l.MaxFilterValues {
+		return req, fmt.Errorf("%w: filters carry %d values in total, the maximum is %d",
+			ErrRequestTooLarge, filterValueCount, l.MaxFilterValues)
 	}
 
 	switch {

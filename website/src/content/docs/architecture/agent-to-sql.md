@@ -59,6 +59,40 @@ The LLM uses that metadata to map the user's words to certified names. For examp
 
 The request contains only certified metric and dimension names, filters, ordering, and a
 limit. It does not contain a table name, join, aggregation, metric expression, or SQL.
+The `filters` array remains an ANDed list of predicates. Use a Boolean `filter` tree when
+the query needs OR logic or null checks:
+
+```json
+{
+  "filter": {
+    "or": [
+      {
+        "field": "account.segment",
+        "op": "=",
+        "value": "Enterprise"
+      },
+      {
+        "and": [
+          {
+            "field": "account.region",
+            "op": "=",
+            "value": "EMEA"
+          },
+          {
+            "field": "account.owner",
+            "op": "IS NULL"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Filter trees support `and` and `or` groups up to five levels deep. `IS NULL` and
+`IS NOT NULL` do not take a value. `NOT LIKE` takes a string value. All leaves resolve to
+modeled fields and pass the same governance checks as other filters. The server also bounds
+the total row and metric predicate count, which defaults to 50.
 
 Discovery is governed. Metrics and dimensions denied to the caller are omitted from the
 tool results. Raw metric expressions are also hidden by default. They can be exposed for a

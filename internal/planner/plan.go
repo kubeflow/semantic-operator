@@ -22,6 +22,7 @@ type Request struct {
 	Metrics       []string       `json:"metrics"`
 	Dimensions    []string       `json:"dimensions,omitempty"`
 	Filters       []Filter       `json:"filters,omitempty"`
+	Filter        *Filter        `json:"filter,omitempty"`
 	MetricFilters []MetricFilter `json:"metricFilters,omitempty"`
 	// TimeGrain is one of day, week, month, quarter, year. It truncates the
 	// first requested time dimension (dimension.is_time).
@@ -101,12 +102,67 @@ type OrderByClause struct {
 	Direction string `json:"direction"` // asc or desc
 }
 
-// Filter restricts rows before aggregation.
+// Filter restricts rows before aggregation. A filter is either a predicate
+// with Field and Op, or a non-empty AND/OR group of child filters.
 type Filter struct {
-	Field  string `json:"field"` // dataset.field
-	Op     string `json:"op"`    // = != < <= > >= IN NOT IN LIKE BETWEEN
-	Value  any    `json:"value,omitempty"`
-	Values []any  `json:"values,omitempty"` // for IN / NOT IN / BETWEEN
+	Field  string   `json:"field,omitempty" jsonschema:"Modeled field reference as dataset.field"`
+	Op     string   `json:"op,omitempty" jsonschema:"Comparison operator, including IS NULL, IS NOT NULL, and NOT LIKE"`
+	Value  any      `json:"value,omitempty" jsonschema:"Scalar comparison value"`
+	Values []any    `json:"values,omitempty" jsonschema:"Values for IN, NOT IN, or BETWEEN"`
+	And    []Filter `json:"and,omitempty" jsonschema:"Filters that must all match"`
+	Or     []Filter `json:"or,omitempty" jsonschema:"Filters where at least one must match"`
+}
+
+const (
+	// MaxFilterDepth bounds nested AND/OR groups in a query request.
+	MaxFilterDepth      = 5
+	maxFilterPredicates = 100
+)
+
+// FilterStats returns the predicate count, value count, and maximum nesting
+// depth across legacy filters and the optional Boolean filter tree.
+func FilterStats(filters []Filter, root *Filter) (predicates, values, maxDepth int, err error) {
+	var walk func(Filter, int) error
+	walk = func(filter Filter, depth int) error {
+		if depth > MaxFilterDepth {
+			return fmt.Errorf("filter nesting depth exceeds the maximum of %d", MaxFilterDepth)
+		}
+		values += len(filter.Values)
+		if depth > maxDepth {
+			maxDepth = depth
+		}
+		hasAnd, hasOr := len(filter.And) > 0, len(filter.Or) > 0
+		if hasAnd && hasOr {
+			return fmt.Errorf("filter group must contain either and or or, not both")
+		}
+		if hasAnd || hasOr {
+			children := filter.And
+			if hasOr {
+				children = filter.Or
+			}
+			for _, child := range children {
+				if err := walk(child, depth+1); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		predicates++
+		if predicates > maxFilterPredicates {
+			return fmt.Errorf("filter predicate count exceeds the maximum of %d", maxFilterPredicates)
+		}
+		return nil
+	}
+
+	for _, filter := range filters {
+		if err = walk(filter, 1); err != nil {
+			return predicates, values, maxDepth, err
+		}
+	}
+	if root != nil {
+		err = walk(*root, 1)
+	}
+	return predicates, values, maxDepth, err
 }
 
 // Plan is the compiled output: exactly one SQL statement plus provenance.
@@ -291,14 +347,10 @@ func Build(cm *CompiledModel, d emitter.Dialect, req Request, id governance.Iden
 		return nil, err
 	}
 
-	// Resolve filters.
-	var filterRefs []expr.FieldRef
-	for i := range req.Filters {
-		ref, _, err := resolveFieldRef(cm, req.Filters[i].Field)
-		if err != nil {
-			return nil, fmt.Errorf("filter %q: %w", req.Filters[i].Field, err)
-		}
-		filterRefs = append(filterRefs, ref)
+	// Resolve filters before authorization and SQL generation.
+	filterRefs, err := resolveFilters(cm, req.Filters, req.Filter)
+	if err != nil {
+		return nil, err
 	}
 
 	// Governance gate: dimensions, filters, and every field inside every
@@ -336,7 +388,7 @@ func Build(cm *CompiledModel, d emitter.Dialect, req Request, id governance.Iden
 		groups = append(groups, expanded)
 	}
 
-	b := &builder{cm: cm, d: d, req: req, dims: dims, rowFilterGroups: groups}
+	b := &builder{cm: cm, d: d, req: req, dims: dims, filterRefs: filterRefs, rowFilterGroups: groups}
 
 	// Base requirement set: dimensions, filters, row filters.
 	baseRequired := map[string]bool{}
@@ -487,6 +539,116 @@ func resolveFieldRef(cm *CompiledModel, s string) (expr.FieldRef, *CompiledField
 		return expr.FieldRef{}, nil, fmt.Errorf("unknown field %q on dataset %q", ref.Field, ref.Dataset)
 	}
 	return ref, cf, nil
+}
+
+func resolveFilters(cm *CompiledModel, filters []Filter, root *Filter) ([]expr.FieldRef, error) {
+	if _, _, _, err := FilterStats(filters, root); err != nil {
+		return nil, err
+	}
+	refs := make([]expr.FieldRef, 0)
+	var walk func(Filter, int, string) error
+	walk = func(filter Filter, depth int, path string) error {
+		if depth > MaxFilterDepth {
+			return fmt.Errorf("%s: filter nesting depth exceeds the maximum of %d", path, MaxFilterDepth)
+		}
+		hasAnd, hasOr := len(filter.And) > 0, len(filter.Or) > 0
+		if hasAnd || hasOr {
+			if hasAnd && hasOr {
+				return fmt.Errorf("%s: filter group must contain either and or or, not both", path)
+			}
+			if filter.Field != "" || filter.Op != "" || filter.Value != nil || filter.Values != nil {
+				return fmt.Errorf("%s: filter group cannot contain predicate fields", path)
+			}
+			children, group := filter.And, "and"
+			if hasOr {
+				children, group = filter.Or, "or"
+			}
+			for i, child := range children {
+				if err := walk(child, depth+1, fmt.Sprintf("%s.%s[%d]", path, group, i)); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		if filter.Field == "" {
+			return fmt.Errorf("%s.field is required", path)
+		}
+		if filter.Op == "" {
+			return fmt.Errorf("%s.op is required", path)
+		}
+		ref, _, err := resolveFieldRef(cm, filter.Field)
+		if err != nil {
+			return fmt.Errorf("%s filter %q: %w", path, filter.Field, err)
+		}
+		if err := validateFilter(filter); err != nil {
+			return fmt.Errorf("%s filter %q: %w", path, filter.Field, err)
+		}
+		refs = append(refs, ref)
+		return nil
+	}
+
+	for i, filter := range filters {
+		if err := walk(filter, 1, fmt.Sprintf("filters[%d]", i)); err != nil {
+			return nil, err
+		}
+	}
+	if root != nil {
+		if err := walk(*root, 1, "filter"); err != nil {
+			return nil, err
+		}
+	}
+	return refs, nil
+}
+
+func validateFilter(filter Filter) error {
+	switch filter.Op {
+	case "IS NULL", "IS NOT NULL":
+		if filter.Value != nil || filter.Values != nil {
+			return fmt.Errorf("%s does not accept value or values", filter.Op)
+		}
+	case "=", "!=", "<", "<=", ">", ">=", "LIKE", "NOT LIKE":
+		if filter.Value == nil {
+			return fmt.Errorf("%s requires a non-null value", filter.Op)
+		}
+		if filter.Values != nil {
+			return fmt.Errorf("%s does not accept values", filter.Op)
+		}
+		if filter.Op == "LIKE" || filter.Op == "NOT LIKE" {
+			if _, ok := filter.Value.(string); !ok {
+				return fmt.Errorf("%s requires a string value", filter.Op)
+			}
+		}
+		if err := validateMetricFilterValue(filter.Value); err != nil {
+			return err
+		}
+	case "IN", "NOT IN":
+		if filter.Value != nil {
+			return fmt.Errorf("%s does not accept value", filter.Op)
+		}
+		if len(filter.Values) == 0 {
+			return fmt.Errorf("%s requires values", filter.Op)
+		}
+		for _, value := range filter.Values {
+			if err := validateMetricFilterValue(value); err != nil {
+				return err
+			}
+		}
+	case "BETWEEN":
+		if filter.Value != nil {
+			return fmt.Errorf("BETWEEN does not accept value")
+		}
+		if len(filter.Values) != 2 {
+			return fmt.Errorf("BETWEEN requires exactly two values")
+		}
+		for _, value := range filter.Values {
+			if err := validateMetricFilterValue(value); err != nil {
+				return err
+			}
+		}
+	default:
+		return fmt.Errorf("unsupported operator %q", filter.Op)
+	}
+	return nil
 }
 
 func resolveOrderBy(req Request) ([]orderSpec, error) {

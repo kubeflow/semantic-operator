@@ -9,6 +9,7 @@ import (
 	"github.com/kubeflow/semantic-operator/api/v1alpha1"
 	"github.com/kubeflow/semantic-operator/internal/emitter"
 	_ "github.com/kubeflow/semantic-operator/internal/emitter/starrocks"
+	_ "github.com/kubeflow/semantic-operator/internal/emitter/trino"
 	"github.com/kubeflow/semantic-operator/internal/governance"
 )
 
@@ -163,6 +164,133 @@ func TestSimpleMetricByDimension(t *testing.T) {
 		"ORDER BY 1"
 	if plan.SQL != want {
 		t.Fatalf("SQL mismatch.\ngot:\n%s\n\nwant:\n%s", plan.SQL, want)
+	}
+}
+
+func TestBooleanFilterGroupsAndNullOperators(t *testing.T) {
+	cm := compiled(t)
+	plan, err := Build(cm, testDialect(t), Request{
+		Metrics: []string{"total_sales"},
+		Filters: []Filter{{Field: "store.s_state", Op: "!=", Value: "CA"}},
+		Filter: &Filter{Or: []Filter{
+			{Field: "store.s_state", Op: "=", Value: "NY"},
+			{And: []Filter{
+				{Field: "store.s_state", Op: "NOT LIKE", Value: "TX%"},
+				{Field: "store.s_store_sk", Op: "IS NULL"},
+			}},
+		}},
+	}, governance.Single("admin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fragment := range []string{
+		" OR ",
+		" AND ",
+		" NOT LIKE 'TX%'",
+		" IS NULL",
+	} {
+		if !strings.Contains(plan.SQL, fragment) {
+			t.Fatalf("SQL is missing %q:\n%s", fragment, plan.SQL)
+		}
+	}
+	if strings.Count(plan.SQL, " AND ") < 2 {
+		t.Fatalf("legacy filters and the Boolean tree must be conjoined:\n%s", plan.SQL)
+	}
+
+	plan, err = Build(cm, testDialect(t), Request{
+		Metrics: []string{"total_sales"},
+		Filter:  &Filter{Field: "store.s_store_sk", Op: "IS NOT NULL"},
+	}, governance.Single("admin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(plan.SQL, " IS NOT NULL") {
+		t.Fatalf("IS NOT NULL was not emitted:\n%s", plan.SQL)
+	}
+}
+
+func TestBooleanFilterOperatorsRenderForBothDialects(t *testing.T) {
+	cm := compiled(t)
+	for _, name := range []string{"starrocks", "trino"} {
+		d, err := emitter.Get(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		plan, err := Build(cm, d, Request{
+			Metrics: []string{"total_sales"},
+			Filter: &Filter{Or: []Filter{
+				{Field: "store.s_state", Op: "NOT LIKE", Value: "TX%"},
+				{Field: "store.s_store_sk", Op: "IS NOT NULL"},
+			}},
+		}, governance.Single("admin"))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		for _, fragment := range []string{" OR ", " NOT LIKE 'TX%'", " IS NOT NULL"} {
+			if !strings.Contains(plan.SQL, fragment) {
+				t.Fatalf("%s SQL is missing %q:\n%s", name, fragment, plan.SQL)
+			}
+		}
+	}
+}
+
+func TestFilterTreeValidationAndGovernance(t *testing.T) {
+	cm := compiled(t)
+	cases := []struct {
+		name   string
+		filter Filter
+		want   string
+	}{
+		{"empty group", Filter{And: []Filter{}}, "field is required"},
+		{"both groups", Filter{And: []Filter{{Field: "store.s_state", Op: "=", Value: "NY"}}, Or: []Filter{{Field: "store.s_state", Op: "=", Value: "CA"}}}, "either and or or"},
+		{"predicate and group", Filter{Field: "store.s_state", Op: "=", Value: "NY", And: []Filter{{Field: "store.s_state", Op: "=", Value: "CA"}}}, "cannot contain predicate fields"},
+		{"unsupported operator", Filter{Field: "store.s_state", Op: "= 'NY' OR 1=1", Value: "x"}, "unsupported operator"},
+		{"null operator with value", Filter{Field: "store.s_state", Op: "IS NULL", Value: "NY"}, "does not accept"},
+		{"not like non-string", Filter{Field: "store.s_state", Op: "NOT LIKE", Value: 1}, "requires a string"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Build(cm, testDialect(t), Request{
+				Metrics: []string{"total_sales"},
+				Filter:  &tc.filter,
+			}, governance.Single("admin"))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %v, want it to contain %q", err, tc.want)
+			}
+		})
+	}
+
+	_, err := Build(cm, testDialect(t), Request{
+		Metrics: []string{"total_sales"},
+		Filter: &Filter{Or: []Filter{
+			{Field: "store.s_state", Op: "=", Value: "NY"},
+			{Field: "customer.c_email_address", Op: "IS NOT NULL"},
+		}},
+	}, governance.Single("analyst"))
+	if !errors.Is(err, governance.ErrUnauthorized) {
+		t.Fatalf("filter fields in OR groups must be governed, got %v", err)
+	}
+}
+
+func TestFilterTreeDepthAndHashAreBounded(t *testing.T) {
+	cm := compiled(t)
+	deep := Filter{Field: "store.s_state", Op: "=", Value: "NY"}
+	for range MaxFilterDepth {
+		deep = Filter{And: []Filter{deep}}
+	}
+	req := Request{Metrics: []string{"total_sales"}, Filter: &deep}
+	if _, err := Build(cm, testDialect(t), req, governance.Single("admin")); err == nil || !strings.Contains(err.Error(), "nesting depth") {
+		t.Fatalf("expected bounded-depth error, got %v", err)
+	}
+
+	base := Request{
+		Metrics: []string{"total_sales"},
+		Filter:  &Filter{Or: []Filter{{Field: "store.s_state", Op: "=", Value: "NY"}}},
+	}
+	changed := base
+	changed.Filter = &Filter{And: []Filter{{Field: "store.s_state", Op: "=", Value: "NY"}}}
+	if RequestHash(base, "analyst") == RequestHash(changed, "analyst") {
+		t.Fatal("changing the Boolean filter structure must change the request hash")
 	}
 }
 
@@ -470,6 +598,26 @@ func TestOrderByDoesNotAppendDimensions(t *testing.T) {
 	}
 	if !strings.HasSuffix(plan.SQL, "ORDER BY 3 DESC\nLIMIT 5") {
 		t.Fatalf("planner added an ordering clause that was not requested:\n%s", plan.SQL)
+	}
+}
+
+func TestBooleanFiltersReachSplitRatioQueries(t *testing.T) {
+	cm := compiled(t)
+	plan, err := Build(cm, testDialect(t), Request{
+		Metrics: []string{"store_productivity"},
+		Filter: &Filter{Or: []Filter{
+			{Field: "item.i_category", Op: "=", Value: "Books"},
+			{Field: "item.i_category", Op: "IS NULL"},
+		}},
+	}, governance.Single("admin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(plan.SQL, "WITH ") {
+		t.Fatalf("expected split ratio query, got:\n%s", plan.SQL)
+	}
+	if count := strings.Count(plan.SQL, "`item`.`i_category` = 'Books'"); count != 2 {
+		t.Fatalf("Boolean filters should be applied to both ratio sides, found %d copies:\n%s", count, plan.SQL)
 	}
 }
 

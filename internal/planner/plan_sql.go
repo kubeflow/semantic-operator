@@ -16,6 +16,7 @@ type builder struct {
 	d               emitter.Dialect
 	req             Request
 	dims            []dimSpec
+	filterRefs      []expr.FieldRef
 	rowFilterGroups [][]v1alpha1.RowFilter
 }
 
@@ -187,6 +188,21 @@ func (b *builder) renderMetricFilter(spec metricFilterSpec, lhs string) (string,
 }
 
 func (b *builder) renderFilter(f Filter) (string, error) {
+	if len(f.And) > 0 || len(f.Or) > 0 {
+		children, joiner := f.And, " AND "
+		if len(f.Or) > 0 {
+			children, joiner = f.Or, " OR "
+		}
+		parts := make([]string, len(children))
+		for i, child := range children {
+			part, err := b.renderFilter(child)
+			if err != nil {
+				return "", err
+			}
+			parts[i] = "(" + part + ")"
+		}
+		return strings.Join(parts, joiner), nil
+	}
 	ref, _, err := resolveFieldRef(b.cm, f.Field)
 	if err != nil {
 		return "", fmt.Errorf("filter %q: %w", f.Field, err)
@@ -197,7 +213,9 @@ func (b *builder) renderFilter(f Filter) (string, error) {
 	}
 	lit := func(v any) (string, error) { return b.d.Literal(v) }
 	switch f.Op {
-	case "=", "!=", "<", "<=", ">", ">=", "LIKE":
+	case "IS NULL", "IS NOT NULL":
+		return lhs + " " + f.Op, nil
+	case "=", "!=", "<", "<=", ">", ">=", "LIKE", "NOT LIKE":
 		v, err := lit(f.Value)
 		if err != nil {
 			return "", fmt.Errorf("filter %q: %w", f.Field, err)
@@ -241,6 +259,13 @@ func (b *builder) whereClauses(filters []Filter, inTree map[string]bool) ([]stri
 	var out []string
 	for _, f := range filters {
 		s, err := b.renderFilter(f)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, "("+s+")")
+	}
+	if b.req.Filter != nil {
+		s, err := b.renderFilter(*b.req.Filter)
 		if err != nil {
 			return nil, err
 		}
@@ -359,11 +384,7 @@ func (b *builder) sideQuery(t expr.AggTerm, filters []Filter) (string, error) {
 	for _, dm := range b.dims {
 		required[dm.Ref.Dataset] = true
 	}
-	for _, f := range filters {
-		ref, _, err := resolveFieldRef(b.cm, f.Field)
-		if err != nil {
-			return "", err
-		}
+	for _, ref := range b.filterRefs {
 		required[ref.Dataset] = true
 	}
 	for _, g := range b.rowFilterGroups {

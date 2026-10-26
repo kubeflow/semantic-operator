@@ -8,6 +8,12 @@ import (
 	"github.com/kubeflow/semantic-operator/internal/planner"
 )
 
+func TestNewServerBuildsRecursiveFilterSchema(t *testing.T) {
+	if NewServer(nil, "test", nil) == nil {
+		t.Fatal("expected MCP server")
+	}
+}
+
 func TestPlannerRequestMapsOrderBy(t *testing.T) {
 	in := queryIn{
 		Metrics:    []string{"total_sales"},
@@ -61,5 +67,24 @@ func TestPlannerRequestPreservesMetricFilterJSONContract(t *testing.T) {
 	got := in.plannerRequest()
 	if !reflect.DeepEqual(got.MetricFilters, direct.MetricFilters) {
 		t.Fatalf("MCP metric filter contract differs from REST/planner decoding:\ngot:  %#v\nwant: %#v", got.MetricFilters, direct.MetricFilters)
+	}
+}
+
+func TestPlannerRequestMapsBooleanFilterGroups(t *testing.T) {
+	body := []byte(`{"metrics":["total_sales"],"filter":{"or":[{"field":"store.s_state","op":"=","value":"NY"},{"and":[{"field":"store.s_store_sk","op":"IS NULL"},{"field":"store.s_state","op":"NOT LIKE","value":"TX%"}]}]}}`)
+	var in queryIn
+	if err := json.Unmarshal(body, &in); err != nil {
+		t.Fatal(err)
+	}
+	got := in.plannerRequest()
+	want := &planner.Filter{Or: []planner.Filter{
+		{Field: "store.s_state", Op: "=", Value: "NY"},
+		{And: []planner.Filter{
+			{Field: "store.s_store_sk", Op: "IS NULL"},
+			{Field: "store.s_state", Op: "NOT LIKE", Value: "TX%"},
+		}},
+	}}
+	if !reflect.DeepEqual(got.Filter, want) {
+		t.Fatalf("filter tree mismatch:\ngot:  %#v\nwant: %#v", got.Filter, want)
 	}
 }
