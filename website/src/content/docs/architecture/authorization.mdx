@@ -60,10 +60,14 @@ The server sends bounded semantic context rather than generated SQL:
 - the action and adapter, such as an MCP query,
 - the authenticated principal, groups, roles, and copied claims,
 - the exact model name, namespace, resource, and version,
-- requested metrics, dimensions, filters, time grain, ordering, and limit,
+- requested metrics, dimensions, filters, time grain, ordering, and the
+  effective row limit, which is the caller's limit or the default when none
+  is named,
 - the trusted access time.
 
-Raw metric expressions and SQL are never sent to OPA or Ranger. Policies therefore decide
+Raw metric expressions and SQL are never sent to OPA or Ranger. The statement
+that executes fetches one probe row past the effective limit, an execution
+detail the policy never sees. Policies therefore decide
 against stable business names such as `total_revenue` and `customer.region`, not
 engine-specific query text.
 

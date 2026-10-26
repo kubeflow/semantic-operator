@@ -9,16 +9,29 @@ import (
 )
 
 // A request with no limit used to compile to SQL with no LIMIT clause, so one
-// high-cardinality grouping could return the whole table. It now compiles with
-// one row past the default. That extra row is the probe Service.Query uses to
-// tell a complete result from a larger one it must refuse.
-func TestUnsetLimitGetsTheDefaultProbe(t *testing.T) {
+// high-cardinality grouping could return the whole table. apply now fills the
+// default in as the effective limit. Service.Plan adds the one probe row past
+// it when the statement is built, after external authorization has decided.
+func TestUnsetLimitGetsTheDefault(t *testing.T) {
 	got, err := Limits{}.apply(planner.Request{Metrics: []string{"revenue"}})
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	if want := DefaultLimits().DefaultRowLimit + 1; got.Limit != want {
-		t.Fatalf("limit = %d, want the default plus the probe row %d", got.Limit, want)
+	if got.Limit != DefaultLimits().DefaultRowLimit {
+		t.Fatalf("limit = %d, want the default %d", got.Limit, DefaultLimits().DefaultRowLimit)
+	}
+}
+
+// An explicit limit stays the caller's value. It is what external
+// authorization sees, and Service.Plan adds the one probe row past it when
+// the statement is built, after the policy has decided.
+func TestExplicitLimitStaysTheCallerValue(t *testing.T) {
+	got, err := Limits{}.apply(planner.Request{Metrics: []string{"revenue"}, Limit: 50})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if got.Limit != 50 {
+		t.Fatalf("limit = %d, want the caller's 50", got.Limit)
 	}
 }
 
@@ -86,8 +99,8 @@ func TestCacheCeilingNeverExceedsResultCeiling(t *testing.T) {
 	}
 }
 
-// Limits are applied before the plan cache key is computed, so an explicit
-// limit and a defaulted one do not share a cache entry.
+// The plan cache key hashes the request as compiled, probe row included, so
+// an explicit limit and a defaulted one do not share a cache entry.
 func TestDefaultedAndExplicitLimitsHashDifferently(t *testing.T) {
 	unset, err := Limits{}.apply(planner.Request{Metrics: []string{"revenue"}})
 	if err != nil {
@@ -97,6 +110,9 @@ func TestDefaultedAndExplicitLimitsHashDifferently(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The one probe row Service.Plan adds when building the statement.
+	unset.Limit++
+	explicit.Limit++
 	if planner.RequestHash(unset, "analyst") == planner.RequestHash(explicit, "analyst") {
 		t.Fatal("a defaulted limit and an explicit one must not share a plan cache key")
 	}

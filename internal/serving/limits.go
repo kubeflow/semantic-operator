@@ -11,9 +11,10 @@ import (
 // bound. Adapters map it to 400, which is the default status in writeErr.
 var ErrRequestTooLarge = errors.New("request exceeds a configured limit")
 
-// ErrResultIncomplete marks a defaulted-limit query whose result exceeds the
-// default. Refused because a caller cannot tell a prefix from
-// the whole result. Adapters map it to 400.
+// ErrResultIncomplete is retained for compatibility and no longer returned
+// by Service.Query. Truncation is reported through QueryResult.HasMore
+// instead of refused, so a caller can tell a prefix from a whole result
+// while still receiving the rows. See issue 12.
 var ErrResultIncomplete = errors.New("result is incomplete at the default row limit: narrow the request or set an explicit limit")
 
 // Limits bound what one request may ask for and what one result may cost.
@@ -23,15 +24,17 @@ var ErrResultIncomplete = errors.New("result is incomplete at the default row li
 // every row into memory, serializes it, and hands a copy to the cache. That is
 // three copies of an unbounded result inside a pod with a fixed memory limit.
 //
-// Requests that exceed a bound are refused rather than quietly trimmed. This
-// project exists to stop confidently wrong answers, and silently returning the
-// first 10,000 rows of a larger result is exactly that: the caller cannot tell
-// a complete answer from a truncated one. Refusing says so plainly.
+// A request over a bound is refused, except for row-count truncation which is
+// reported with a hasMore flag. Silently returning the first N rows of a
+// larger result is a confidently wrong answer: the caller cannot tell
+// a complete answer from a truncated one. Reporting says so plainly while
+// still returning the rows.
 //
-// A request that names no limit is bound the same way: the effective limit
-// becomes DefaultRowLimit + 1, so Query can distinguish a complete result at
-// the default from a larger one it must refuse. An explicit limit is the
-// caller's intent and so is honored up to MaxRowLimit.
+// Every statement fetches one row past its effective limit, so Query can
+// distinguish a complete result from a larger one it must flag. apply fills
+// in the effective limit, the caller's value or the default, and that is the
+// request external authorization sees. Service.Plan adds the probe after the
+// policy has decided, so the extra row never reaches a limit-bounding policy.
 type Limits struct {
 	// DefaultRowLimit applies when a request names no limit.
 	DefaultRowLimit int
@@ -140,9 +143,12 @@ func (l Limits) withDefaults() Limits {
 	return l
 }
 
-// apply validates the request shape and returns it with the row limit filled
-// in. It runs before the plan cache key is computed, so the key covers the
-// effective limit.
+// apply validates the request shape and returns it with the effective row
+// limit filled in: the caller's value, or the default when none was named. It
+// runs before the plan cache key is computed, so the key covers the effective
+// limit. It is also the request external authorization sees: Service.Plan
+// adds the one-row execution probe on top only after the policy has decided,
+// so a policy bounding limits at N sees N, not N+1.
 func (l Limits) apply(req planner.Request) (planner.Request, error) {
 	l = l.withDefaults()
 
@@ -166,8 +172,9 @@ func (l Limits) apply(req planner.Request) (planner.Request, error) {
 	case req.Limit < 0:
 		return req, fmt.Errorf("%w: limit must not be negative", ErrRequestTooLarge)
 	case req.Limit == 0:
-		// Probe one row past the default so Query can refuse a larger result.
-		req.Limit = l.DefaultRowLimit + 1
+		// The default is the effective limit. The probe row past it is the
+		// execution detail Service.Plan adds when the statement is built.
+		req.Limit = l.DefaultRowLimit
 	case req.Limit > l.MaxRowLimit:
 		return req, fmt.Errorf("%w: limit %d exceeds the maximum of %d", ErrRequestTooLarge, req.Limit, l.MaxRowLimit)
 	}

@@ -3,6 +3,8 @@ package serving
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/kubeflow/semantic-operator/api/v1alpha1"
@@ -111,6 +113,49 @@ func TestExternalAllowPreservesBuiltInGovernanceAndFingerprint(t *testing.T) {
 	}
 	if allow.calls != 2 {
 		t.Fatalf("provider should run for every plan attempt, calls=%d", allow.calls)
+	}
+}
+
+// The provider decides on the request the caller made, with the effective row
+// limit filled in. The one-row probe Service.Plan adds when building the
+// statement is execution detail: a policy that allows limits up to 50 must
+// not see 51 for a request that asked for 50.
+func TestExternalAuthorizationSeesTheCallerLimitNotTheProbeRow(t *testing.T) {
+	model := externalModel(t)
+	allow := &stubAuthorizer{decision: authorization.Decision{Allow: true}}
+	svc := &Service{Dialect: starrocks.Dialect{}, Authorization: allow}
+
+	plan, _, err := svc.Plan(context.Background(), "test", model,
+		planner.Request{Metrics: []string{"revenue"}, Limit: 50}, governance.Single("analyst"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if allow.input.Request.Limit != 50 {
+		t.Fatalf("provider saw request.limit %d, want the caller's 50", allow.input.Request.Limit)
+	}
+	if !strings.HasSuffix(plan.SQL, "\nLIMIT 51") {
+		t.Fatalf("plan SQL must still fetch the probe row past the limit:\n%s", plan.SQL)
+	}
+}
+
+// A request with no limit sees the default as its effective limit, not the
+// default plus the probe row. Same rule as an explicit limit: the policy
+// bounds the response, and the probe never reaches it.
+func TestExternalAuthorizationSeesTheDefaultLimitNotTheProbeRow(t *testing.T) {
+	model := externalModel(t)
+	allow := &stubAuthorizer{decision: authorization.Decision{Allow: true}}
+	svc := &Service{Dialect: starrocks.Dialect{}, Authorization: allow}
+
+	plan, _, err := svc.Plan(context.Background(), "test", model,
+		planner.Request{Metrics: []string{"revenue"}}, governance.Single("analyst"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := DefaultLimits().DefaultRowLimit; allow.input.Request.Limit != want {
+		t.Fatalf("provider saw request.limit %d, want the default %d", allow.input.Request.Limit, want)
+	}
+	if !strings.HasSuffix(plan.SQL, fmt.Sprintf("\nLIMIT %d", DefaultLimits().DefaultRowLimit+1)) {
+		t.Fatalf("plan SQL must still fetch the probe row past the default:\n%s", plan.SQL)
 	}
 }
 
