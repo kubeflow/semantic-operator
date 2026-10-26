@@ -102,11 +102,6 @@ func handleQuery(svc *serving.Service, authn *auth.Authenticator, resolver servi
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	cred, err := resolver(r.Context(), ac.Token, ac.EngineUser, ac.Expiry)
-	if err != nil {
-		writeErr(w, err)
-		return
-	}
 	if !execute {
 		plan, cached, err := svc.Plan(r.Context(), "rest", m, req, ac.Identity)
 		if err != nil {
@@ -114,6 +109,11 @@ func handleQuery(svc *serving.Service, authn *auth.Authenticator, resolver servi
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"plan": plan, "cachedPlan": cached})
+		return
+	}
+	cred, err := resolver(r.Context(), ac.Token, ac.EngineUser, ac.Expiry)
+	if err != nil {
+		writeErr(w, err)
 		return
 	}
 	res, err := svc.Query(r.Context(), "rest", m, req, ac.Identity, cred)

@@ -1,12 +1,16 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/kubeflow/semantic-operator/internal/dbclient"
 	"github.com/kubeflow/semantic-operator/internal/planner"
 	"github.com/kubeflow/semantic-operator/internal/serving"
 	"github.com/kubeflow/semantic-operator/internal/serving/authorization"
@@ -44,6 +48,43 @@ func TestMissingPrincipalIsRejected(t *testing.T) {
 	h.ServeHTTP(w, r)
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401. body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestSQLPlanningDoesNotResolveEngineCredentials(t *testing.T) {
+	called := false
+	resolver := func(context.Context, string, string, time.Time) (dbclient.EngineCredential, error) {
+		called = true
+		return dbclient.EngineCredential{}, errors.New("unexpected credential resolution")
+	}
+	h := Handler(svcWithModel(t, serving.Limits{}), nil, resolver)
+	r := httptest.NewRequest(http.MethodPost, "/v1/models/retail/sql", strings.NewReader(`{"metrics":["revenue"],"limit":-1}`))
+	r.Header.Set(PrincipalHeader, "test-user")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+
+	if called {
+		t.Fatal("SQL planning request resolved engine credentials")
+	}
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "limit must not be negative") {
+		t.Fatalf("status = %d, body = %s; want plan validation error", w.Code, w.Body.String())
+	}
+}
+
+func TestQueryRequestResolvesEngineCredentials(t *testing.T) {
+	called := false
+	resolver := func(context.Context, string, string, time.Time) (dbclient.EngineCredential, error) {
+		called = true
+		return dbclient.EngineCredential{}, errors.New("credential resolution failed")
+	}
+	h := Handler(svcWithModel(t, serving.Limits{}), nil, resolver)
+	w := post(t, h, `{"metrics":["revenue"]}`)
+
+	if !called {
+		t.Fatal("query request did not resolve engine credentials")
+	}
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "credential resolution failed") {
+		t.Fatalf("status = %d, body = %s; want credential resolution error", w.Code, w.Body.String())
 	}
 }
 
