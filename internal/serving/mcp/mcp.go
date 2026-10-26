@@ -47,7 +47,7 @@ type queryIn struct {
 	Dimensions    []string               `json:"dimensions,omitempty" jsonschema:"Explicitly declared group-by dimensions as dataset.field from list_dimensions"`
 	Filters       []filterIn             `json:"filters,omitempty" jsonschema:"Row filters applied before aggregation"`
 	MetricFilters []planner.MetricFilter `json:"metricFilters,omitempty" jsonschema:"Filters on requested certified metric results applied after aggregation"`
-	Grain         string                 `json:"grain,omitempty" jsonschema:"Time grain: day, week, month, quarter, or year. Requires a time dimension in dimensions."`
+	TimeGrain     *planner.TimeGrainSpec `json:"timeGrain,omitempty" jsonschema:"Optional grain and explicit time dimension field to truncate"`
 	OrderBy       []orderByIn            `json:"orderBy,omitempty" jsonschema:"Ordered requested fields. Add every requested dimension after a metric to guarantee stable Top-N ties."`
 	Limit         int                    `json:"limit,omitempty" jsonschema:"Row limit applied after metric filtering and ordering"`
 }
@@ -57,7 +57,7 @@ func (in queryIn) plannerRequest() planner.Request {
 		Metrics:       in.Metrics,
 		Dimensions:    in.Dimensions,
 		MetricFilters: in.MetricFilters,
-		TimeGrain:     in.Grain,
+		TimeGrain:     in.TimeGrain,
 		Limit:         in.Limit,
 	}
 	for _, f := range in.Filters {

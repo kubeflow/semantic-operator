@@ -33,7 +33,7 @@ func BuildViewSQL(cm *planner.CompiledModel, d emitter.Dialect, v v1alpha1.ViewS
 	req := planner.Request{
 		Metrics:    v.Metrics,
 		Dimensions: v.Dimensions,
-		TimeGrain:  v.TimeGrain,
+		TimeGrain:  viewTimeGrain(cm, v),
 	}
 	for _, f := range v.Filters {
 		pf := planner.Filter{Field: f.Field, Op: f.Op}
@@ -53,6 +53,24 @@ func BuildViewSQL(cm *planner.CompiledModel, d emitter.Dialect, v v1alpha1.ViewS
 	}
 	return fmt.Sprintf("CREATE OR REPLACE VIEW %s.%s AS\n%s",
 		quoteDotted(d, database), d.QuoteIdent(v.Name), plan.SQL), nil
+}
+
+func viewTimeGrain(cm *planner.CompiledModel, v v1alpha1.ViewSpec) *planner.TimeGrainSpec {
+	if v.TimeGrain == "" {
+		return nil
+	}
+	// ViewSpec has a single grain setting. Preserve its historical first-time-
+	// dimension behavior while converting it to the explicit planner request.
+	for _, dimension := range v.Dimensions {
+		dataset, field, ok := strings.Cut(dimension, ".")
+		if !ok || cm.Datasets[dataset] == nil {
+			continue
+		}
+		if f := cm.Datasets[dataset].Fields[field]; f != nil && f.IsTime {
+			return &planner.TimeGrainSpec{Field: dimension, Grain: v.TimeGrain}
+		}
+	}
+	return &planner.TimeGrainSpec{Grain: v.TimeGrain}
 }
 
 // quoteDotted quotes a possibly catalog-qualified schema name part by part:

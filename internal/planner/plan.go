@@ -18,16 +18,20 @@ import (
 
 // Request is a semantic query: metrics by dimensions, filtered, ordered, at a grain.
 type Request struct {
-	Model         string         `json:"model"`
-	Metrics       []string       `json:"metrics"`
-	Dimensions    []string       `json:"dimensions,omitempty"`
-	Filters       []Filter       `json:"filters,omitempty"`
-	MetricFilters []MetricFilter `json:"metricFilters,omitempty"`
-	// TimeGrain is one of day, week, month, quarter, year. It truncates the
-	// first requested time dimension (dimension.is_time).
-	TimeGrain string          `json:"timeGrain,omitempty"`
-	OrderBy   []OrderByClause `json:"orderBy,omitempty"`
-	Limit     int             `json:"limit,omitempty"`
+	Model         string          `json:"model"`
+	Metrics       []string        `json:"metrics"`
+	Dimensions    []string        `json:"dimensions,omitempty"`
+	Filters       []Filter        `json:"filters,omitempty"`
+	MetricFilters []MetricFilter  `json:"metricFilters,omitempty"`
+	TimeGrain     *TimeGrainSpec  `json:"timeGrain,omitempty"`
+	OrderBy       []OrderByClause `json:"orderBy,omitempty"`
+	Limit         int             `json:"limit,omitempty"`
+}
+
+// TimeGrainSpec selects the requested time dimension to truncate.
+type TimeGrainSpec struct {
+	Field string `json:"field" jsonschema:"Requested time dimension as dataset.field"`
+	Grain string `json:"grain" jsonschema:"Time grain: day, week, month, quarter, or year"`
 }
 
 // MetricFilter restricts aggregate results. Metric is an exact requested
@@ -268,21 +272,26 @@ func Build(cm *CompiledModel, d emitter.Dialect, req Request, id governance.Iden
 		dims = append(dims, dimSpec{Ref: ref, Field: cf})
 	}
 
-	// Time grain applies to the first time dimension.
-	if req.TimeGrain != "" {
-		if !validGrains[req.TimeGrain] {
-			return nil, fmt.Errorf("invalid timeGrain %q: use day, week, month, quarter, or year", req.TimeGrain)
+	if req.TimeGrain != nil {
+		if req.TimeGrain.Field == "" {
+			return nil, fmt.Errorf("timeGrain field is required")
+		}
+		if !validGrains[req.TimeGrain.Grain] {
+			return nil, fmt.Errorf("invalid timeGrain grain %q: use day, week, month, quarter, or year", req.TimeGrain.Grain)
 		}
 		applied := false
 		for i := range dims {
-			if dims[i].Field.IsTime {
-				dims[i].Grained = true
-				applied = true
-				break
+			if dims[i].Ref.String() != req.TimeGrain.Field {
+				continue
 			}
+			if !dims[i].Field.IsTime {
+				return nil, fmt.Errorf("timeGrain field %q is not an effective time dimension", req.TimeGrain.Field)
+			}
+			dims[i].Grained = true
+			applied = true
 		}
 		if !applied {
-			return nil, fmt.Errorf("timeGrain %q requires a time dimension (dimension.is_time) among the requested dimensions", req.TimeGrain)
+			return nil, fmt.Errorf("timeGrain field %q must appear in requested dimensions", req.TimeGrain.Field)
 		}
 	}
 

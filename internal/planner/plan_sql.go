@@ -117,7 +117,7 @@ func (b *builder) renderDim(dm dimSpec) (string, error) {
 		return "", err
 	}
 	if dm.Grained {
-		s = b.d.DateTrunc(b.req.TimeGrain, s)
+		s = b.d.DateTrunc(b.req.TimeGrain.Grain, s)
 	}
 	return s, nil
 }

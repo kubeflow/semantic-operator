@@ -105,6 +105,8 @@ The planner turns the authorized request into one SQL statement in three concept
   has no rows for a group, the ratio is NULL for that group.
 - **Zero denominators.** A ratio whose denominator is zero is NULL, because the denominator
   is always wrapped in `NULLIF(denominator, 0)`.
+- **Time grain.** A request names the exact time dimension and grain to truncate. The
+  target must be a requested, authorized dimension with an effective time role.
 - **Governance in SQL.** The role's row filters are compiled into the statement, conjoined
   within a role and unioned across the roles that authorized the request. A predicate may
   interpolate a caller claim to express a rule like "each user sees their own region."

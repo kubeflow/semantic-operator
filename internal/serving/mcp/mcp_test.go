@@ -18,7 +18,7 @@ func TestPlannerRequestMapsOrderBy(t *testing.T) {
 		MetricFilters: []planner.MetricFilter{{
 			Metric: "total_sales", Op: "BETWEEN", Values: []any{100, 1000},
 		}},
-		Grain: "month",
+		TimeGrain: &planner.TimeGrainSpec{Field: "date_dim.d_date", Grain: "month"},
 		OrderBy: []orderByIn{
 			{Field: "total_sales", Direction: "desc"},
 			{Field: "item.i_category", Direction: "asc"},
@@ -36,7 +36,7 @@ func TestPlannerRequestMapsOrderBy(t *testing.T) {
 		MetricFilters: []planner.MetricFilter{{
 			Metric: "total_sales", Op: "BETWEEN", Values: []any{100, 1000},
 		}},
-		TimeGrain: "month",
+		TimeGrain: &planner.TimeGrainSpec{Field: "date_dim.d_date", Grain: "month"},
 		OrderBy: []planner.OrderByClause{
 			{Field: "total_sales", Direction: "desc"},
 			{Field: "item.i_category", Direction: "asc"},
@@ -61,5 +61,18 @@ func TestPlannerRequestPreservesMetricFilterJSONContract(t *testing.T) {
 	got := in.plannerRequest()
 	if !reflect.DeepEqual(got.MetricFilters, direct.MetricFilters) {
 		t.Fatalf("MCP metric filter contract differs from REST/planner decoding:\ngot:  %#v\nwant: %#v", got.MetricFilters, direct.MetricFilters)
+	}
+}
+
+func TestPlannerRequestMapsExplicitTimeGrain(t *testing.T) {
+	body := []byte(`{"metrics":["total_sales"],"dimensions":["date_dim.d_date"],"timeGrain":{"field":"date_dim.d_date","grain":"month"}}`)
+	var in queryIn
+	if err := json.Unmarshal(body, &in); err != nil {
+		t.Fatal(err)
+	}
+	got := in.plannerRequest()
+	want := &planner.TimeGrainSpec{Field: "date_dim.d_date", Grain: "month"}
+	if !reflect.DeepEqual(got.TimeGrain, want) {
+		t.Fatalf("time grain mismatch: got %#v, want %#v", got.TimeGrain, want)
 	}
 }

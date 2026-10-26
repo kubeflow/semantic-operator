@@ -40,6 +40,10 @@ The LLM uses that metadata to map the user's words to certified names. For examp
   "model": "saas_revenue",
   "metrics": ["mrr"],
   "dimensions": ["account.region", "calendar.month"],
+  "timeGrain": {
+    "field": "calendar.month",
+    "grain": "month"
+  },
   "filters": [
     {
       "field": "calendar.quarter",
@@ -58,7 +62,8 @@ The LLM uses that metadata to map the user's words to certified names. For examp
 ```
 
 The request contains only certified metric and dimension names, filters, ordering, and a
-limit. It does not contain a table name, join, aggregation, metric expression, or SQL.
+limit. A time grain names the exact requested time dimension it applies to. It does not
+contain a table name, join, aggregation, metric expression, or SQL.
 
 Discovery is governed. Metrics and dimensions denied to the caller are omitted from the
 tool results. Raw metric expressions are also hidden by default. They can be exposed for a

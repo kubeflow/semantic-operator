@@ -56,6 +56,7 @@ func testSpec() *v1alpha1.SemanticModelSpec {
 				{Name: "date_dim", Source: "date_dim", PrimaryKey: []string{"d_date_sk"}, Fields: []v1alpha1.Field{
 					fld("d_date_sk", "d_date_sk", false),
 					fld("d_date", "d_date", true),
+					fld("d_ship_date", "d_ship_date", true),
 					dimensionField("d_year", "d_year"),
 				}},
 				{Name: "customer", Source: "customer", PrimaryKey: []string{"c_customer_sk"}, Fields: []v1alpha1.Field{
@@ -262,7 +263,7 @@ func TestTimeGrain(t *testing.T) {
 	plan, err := Build(cm, testDialect(t), Request{
 		Metrics:    []string{"total_sales"},
 		Dimensions: []string{"date_dim.d_date"},
-		TimeGrain:  "month",
+		TimeGrain:  &TimeGrainSpec{Field: "date_dim.d_date", Grain: "month"},
 	}, governance.Single("admin"))
 	if err != nil {
 		t.Fatal(err)
@@ -272,15 +273,92 @@ func TestTimeGrain(t *testing.T) {
 	}
 }
 
-func TestTimeGrainRequiresTimeDimension(t *testing.T) {
+func TestTimeGrainTargetsExplicitTimeDimension(t *testing.T) {
 	cm := compiled(t)
+	plan, err := Build(cm, testDialect(t), Request{
+		Metrics:    []string{"total_sales"},
+		Dimensions: []string{"date_dim.d_date", "date_dim.d_ship_date"},
+		TimeGrain:  &TimeGrainSpec{Field: "date_dim.d_ship_date", Grain: "month"},
+	}, governance.Single("admin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(plan.SQL, "`date_dim`.`d_date` AS `date_dim.d_date`") {
+		t.Fatalf("untargeted time dimension should remain untruncated:\n%s", plan.SQL)
+	}
+	if !strings.Contains(plan.SQL, "DATE_TRUNC('month', `date_dim`.`d_ship_date`) AS `date_dim.d_ship_date`") {
+		t.Fatalf("requested time dimension should be truncated:\n%s", plan.SQL)
+	}
+}
+
+func TestTimeGrainValidation(t *testing.T) {
+	cm := compiled(t)
+	cases := []struct {
+		name string
+		req  Request
+		want string
+	}{
+		{
+			name: "field not requested",
+			req: Request{
+				Metrics: []string{"total_sales"}, Dimensions: []string{"date_dim.d_date"},
+				TimeGrain: &TimeGrainSpec{Field: "date_dim.d_ship_date", Grain: "month"},
+			},
+			want: "must appear in requested dimensions",
+		},
+		{
+			name: "field not time dimension",
+			req: Request{
+				Metrics: []string{"total_sales"}, Dimensions: []string{"date_dim.d_year"},
+				TimeGrain: &TimeGrainSpec{Field: "date_dim.d_year", Grain: "month"},
+			},
+			want: "not an effective time dimension",
+		},
+		{
+			name: "unsupported grain",
+			req: Request{
+				Metrics: []string{"total_sales"}, Dimensions: []string{"date_dim.d_date"},
+				TimeGrain: &TimeGrainSpec{Field: "date_dim.d_date", Grain: "decade"},
+			},
+			want: "invalid timeGrain grain",
+		},
+		{
+			name: "field is not requested",
+			req: Request{
+				Metrics: []string{"total_sales"}, Dimensions: []string{"store.s_state"},
+				TimeGrain: &TimeGrainSpec{Field: "store.missing", Grain: "month"},
+			},
+			want: "must appear in requested dimensions",
+		},
+		{
+			name: "missing field",
+			req: Request{
+				Metrics: []string{"total_sales"}, Dimensions: []string{"date_dim.d_date"},
+				TimeGrain: &TimeGrainSpec{Grain: "month"},
+			},
+			want: "timeGrain field is required",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Build(cm, testDialect(t), tc.req, governance.Single("admin"))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("Build error = %v, want message containing %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestTimeGrainTargetIsGovernedAsDimension(t *testing.T) {
+	cm := compiled(t)
+	cm.Governance.Roles[0].DenyFields = []string{"date_dim.d_ship_date"}
 	_, err := Build(cm, testDialect(t), Request{
 		Metrics:    []string{"total_sales"},
-		Dimensions: []string{"item.i_category"},
-		TimeGrain:  "month",
-	}, governance.Single("admin"))
-	if err == nil || !strings.Contains(err.Error(), "time dimension") {
-		t.Fatalf("expected time-dimension error, got %v", err)
+		Dimensions: []string{"date_dim.d_date", "date_dim.d_ship_date"},
+		TimeGrain:  &TimeGrainSpec{Field: "date_dim.d_ship_date", Grain: "month"},
+	}, governance.Single("analyst"))
+	if !errors.Is(err, governance.ErrUnauthorized) {
+		t.Fatalf("expected denied time-grain field, got %v", err)
 	}
 }
 
@@ -376,9 +454,14 @@ func TestRequestHashStability(t *testing.T) {
 		t.Fatal("hash must vary by role")
 	}
 	req2 := req
-	req2.TimeGrain = "month"
+	req2.TimeGrain = &TimeGrainSpec{Field: "date_dim.d_date", Grain: "month"}
 	if RequestHash(req2, "analyst") == a {
-		t.Fatal("hash must vary by grain")
+		t.Fatal("hash must vary by time grain")
+	}
+	req3 := req2
+	req3.TimeGrain = &TimeGrainSpec{Field: "date_dim.d_ship_date", Grain: "month"}
+	if RequestHash(req3, "analyst") == RequestHash(req2, "analyst") {
+		t.Fatal("hash must vary by time-grain target field")
 	}
 	ordered := req
 	ordered.OrderBy = []OrderByClause{{Field: "total_sales", Direction: "desc"}}

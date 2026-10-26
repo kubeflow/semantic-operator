@@ -97,7 +97,7 @@ func TestOversizedBodyIsRejected(t *testing.T) {
 // rather than through the handler, because driving the full query path would
 // require a wired cache, tracer, and engine to prove a point about decoding.
 func TestWellFormedBodyPassesDecoding(t *testing.T) {
-	body := `{"metrics":["revenue"],"dimensions":["store.s_state"],"filters":[{"field":"store.s_state","op":"=","value":"NY"}],"metricFilters":[{"metric":"revenue","op":"BETWEEN","values":[100,1000]}],"timeGrain":"month","orderBy":[{"field":"revenue","direction":"desc"},{"field":"store.s_state","direction":"asc"}],"limit":10}`
+	body := `{"metrics":["revenue"],"dimensions":["store.s_state"],"filters":[{"field":"store.s_state","op":"=","value":"NY"}],"metricFilters":[{"metric":"revenue","op":"BETWEEN","values":[100,1000]}],"timeGrain":{"field":"store.s_state","grain":"month"},"orderBy":[{"field":"revenue","direction":"desc"},{"field":"store.s_state","direction":"asc"}],"limit":10}`
 	r := httptest.NewRequest(http.MethodPost, "/v1/models/retail/query", strings.NewReader(body))
 	var req planner.Request
 	if err := decodeJSON(httptest.NewRecorder(), r, 1<<20, &req); err != nil {
@@ -111,6 +111,9 @@ func TestWellFormedBodyPassesDecoding(t *testing.T) {
 	}
 	if req.OrderBy[0].Field != "revenue" || req.OrderBy[0].Direction != "desc" {
 		t.Fatalf("orderBy decoded incorrectly: %+v", req.OrderBy)
+	}
+	if req.TimeGrain == nil || req.TimeGrain.Field != "store.s_state" || req.TimeGrain.Grain != "month" {
+		t.Fatalf("timeGrain decoded incorrectly: %+v", req.TimeGrain)
 	}
 }
 
