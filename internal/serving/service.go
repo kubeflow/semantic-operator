@@ -51,30 +51,38 @@ type Service struct {
 }
 
 // MetricInfo is a listing entry: everything an agent needs to ground a
-// user's vocabulary onto certified metrics.
+// user's vocabulary onto certified metrics. Instructions, synonyms, and
+// examples come from the metric's ai_context. Empty ones are left out.
 type MetricInfo struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description,omitempty"`
-	Expression  string   `json:"expression,omitempty"`
-	Synonyms    []string `json:"synonyms,omitempty"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description,omitempty"`
+	Expression   string   `json:"expression,omitempty"`
+	Instructions string   `json:"instructions,omitempty"`
+	Synonyms     []string `json:"synonyms,omitempty"`
+	Examples     []string `json:"examples,omitempty"`
 }
 
 // DimensionInfo is a listing entry for an explicitly declared groupable field.
 type DimensionInfo struct {
-	Name        string   `json:"name"` // dataset.field
-	Description string   `json:"description,omitempty"`
-	Type        string   `json:"type,omitempty"`
-	IsTime      bool     `json:"isTime,omitempty"`
-	Synonyms    []string `json:"synonyms,omitempty"`
+	Name         string   `json:"name"` // dataset.field
+	Description  string   `json:"description,omitempty"`
+	Type         string   `json:"type,omitempty"`
+	IsTime       bool     `json:"isTime,omitempty"`
+	Instructions string   `json:"instructions,omitempty"`
+	Synonyms     []string `json:"synonyms,omitempty"`
+	Examples     []string `json:"examples,omitempty"`
 }
 
-// ModelInfo describes one published model.
+// ModelInfo describes one published model. Instructions and examples come
+// from the model's own ai_context and apply to the whole model.
 type ModelInfo struct {
-	Name        string `json:"name"`
-	Version     string `json:"version"`
-	Description string `json:"description,omitempty"`
-	Metrics     int    `json:"metrics"`
-	Datasets    int    `json:"datasets"`
+	Name         string   `json:"name"`
+	Version      string   `json:"version"`
+	Description  string   `json:"description,omitempty"`
+	Instructions string   `json:"instructions,omitempty"`
+	Examples     []string `json:"examples,omitempty"`
+	Metrics      int      `json:"metrics"`
+	Datasets     int      `json:"datasets"`
 	// Namespace and Resource identify the SemanticModel that published this
 	// model, so colliding entries in a listing are attributable.
 	Namespace string `json:"namespace,omitempty"`
@@ -182,6 +190,7 @@ func (s *Service) Models(id governance.Identity) []ModelInfo {
 		}
 		out = append(out, ModelInfo{
 			Name: m.Name, Version: m.Version, Description: m.Description,
+			Instructions: m.AIContext.Instructions, Examples: m.AIContext.Examples,
 			Metrics: len(m.MetricOrder), Datasets: len(m.DatasetOrder),
 			Namespace: m.Namespace, Resource: m.Resource,
 		})
@@ -206,7 +215,9 @@ func (s *Service) ListMetrics(m *planner.CompiledModel, id governance.Identity) 
 		}
 		info := MetricInfo{
 			Name: mt.Name, Description: mt.Description,
-			Synonyms: mt.AIContext.Synonyms,
+			Instructions: mt.AIContext.Instructions,
+			Synonyms:     mt.AIContext.Synonyms,
+			Examples:     mt.AIContext.Examples,
 		}
 		if s.ExposeExpressions {
 			info.Expression = mt.Raw
@@ -238,7 +249,10 @@ func (s *Service) ListDimensions(m *planner.CompiledModel, id governance.Identit
 			}
 			out = append(out, DimensionInfo{
 				Name: ref, Description: f.Description,
-				Type: f.Type, IsTime: f.IsTime, Synonyms: f.AIContext.Synonyms,
+				Type: f.Type, IsTime: f.IsTime,
+				Instructions: f.AIContext.Instructions,
+				Synonyms:     f.AIContext.Synonyms,
+				Examples:     f.AIContext.Examples,
 			})
 		}
 	}

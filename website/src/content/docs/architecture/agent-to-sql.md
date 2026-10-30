@@ -26,8 +26,9 @@ Suppose a user asks:
 
 The agent first discovers the vocabulary it is allowed to use. It calls `list_models` if
 several models are published, followed by `list_metrics` and `list_dimensions`. Those tools
-return names, descriptions, and synonyms from the model. Dimensions also include their data
-types and whether they are time dimensions. A field appears in this list only when its Ossie
+return names and descriptions from the model, plus the instructions, synonyms, and example
+questions from each element's `ai_context`. `list_models` returns the model-level instructions
+and examples. Dimensions also include their data types and whether they are time dimensions. A field appears in this list only when its Ossie
 field has a `dimension` declaration. Filters can reference other modeled fields when
 governance permits access.
 
