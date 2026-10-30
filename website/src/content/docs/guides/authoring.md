@@ -169,18 +169,36 @@ The metric grammar is small, and `ossiectl validate` checks it.
 
 ## Step 4. Add business meaning (`ai_context` and `description`)
 
-This is what lets an agent map a user's words to the right metric. Put a `description` and `ai_context.synonyms` on datasets, fields, and metrics.
+This is what lets an agent map a user's words to the right metric. Put a `description` and an `ai_context` on the model, datasets, fields, and metrics.
+
+`ai_context` has three parts:
+
+- `instructions` say when and how to use the element.
+- `synonyms` are the business names users say instead.
+- `examples` are sample questions the element answers.
 
 ```yaml
   - name: total_sales
     expression: {...}
     description: Total sales revenue
     ai_context:
+      instructions: Gross of returns. Use net_sales for revenue after refunds.
       synonyms: ["revenue", "gross sales", "sales amount", "total revenue"]
+      examples:
+        - What were total sales last quarter?
+        - Show total sales by state
+```
+
+A plain string is also accepted. It becomes the instructions:
+
+```yaml
+    ai_context: Two-letter US state code.
 ```
 
 `list_metrics` returns metric metadata. `list_dimensions` returns metadata only for fields with
-an explicit `dimension` declaration. This lets an agent ground "what is our revenue" onto
+an explicit `dimension` declaration. `list_models` returns the model-level instructions and
+examples. Each listing includes the `ai_context` parts that are set and omits the empty ones.
+An element the caller's role cannot use is hidden along with its `ai_context`. This lets an agent ground "what is our revenue" onto
 `total_sales` and "by region" onto a certified group-by field. You are not prompt-stuffing
 the schema. If your organization already curates this in DataHub, import it instead of
 retyping it: see [Import business meaning from a metadata catalog](#import-business-meaning-from-a-metadata-catalog) above. OpenMetadata is on the roadmap.

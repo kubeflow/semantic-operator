@@ -40,8 +40,9 @@ querying.
 
 - A metric or column the caller's roles cannot use is omitted from the listing, rather than
   shown and refused later, so a listing never reveals the shape of the warehouse.
-- Raw metric expressions are not returned unless you opt in, since the name, description, and
-  synonyms are enough for an agent to ground on.
+  Its `ai_context` instructions, synonyms, and examples are omitted with it.
+- Raw metric expressions are not returned unless you opt in. The name, description, and
+  `ai_context` are enough for an agent to ground on.
 - Discovery uses the built-in role policy only. External authorization covers query and
   SQL-plan requests, so a provider is not a way to hide names during discovery.
 
@@ -136,8 +137,8 @@ the memory budget that ties concurrency to result size are in
 
 Agents connect over **MCP** and call `list_models`, `list_metrics`, `list_dimensions`, and
 `query_metric`. `list_dimensions` returns only fields with an Ossie `dimension` declaration.
-The tool descriptions and the model's own synonyms let an agent ground a
-user's wording onto a certified metric. The agent never writes SQL. [How an agent request
+The tool descriptions and the model's own `ai_context` instructions, synonyms, and examples
+let an agent ground a user's wording onto a certified metric. The agent never writes SQL. [How an agent request
 becomes SQL](/architecture/agent-to-sql) shows the complete exchange and explains how the planner
 generates SQL without an LLM.
 
