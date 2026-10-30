@@ -48,6 +48,12 @@ type SemanticModelSpec struct {
 	// the Ossie document stays pure.
 	// +optional
 	Joins []RelationshipJoin `json:"joins,omitempty"`
+
+	// MetricConstraints limit which dimensions a metric can be grouped by
+	// (operator extension). Kept outside the ossie block until Apache Ossie
+	// defines metric grain semantics of its own.
+	// +optional
+	MetricConstraints []MetricConstraint `json:"metricConstraints,omitempty"`
 }
 
 // ConnectionSpec resolves bare dataset sources to physical tables.
@@ -162,6 +168,22 @@ type RelationshipJoin struct {
 	// Type is INNER or LEFT.
 	// +kubebuilder:validation:Enum=INNER;LEFT
 	Type string `json:"type"`
+}
+
+// MetricConstraint limits the dimensions one metric can be grouped by. A
+// pattern is either "dataset.field" or "dataset.*" for every field of a
+// dataset. A dimension matching a denied pattern is always refused. When
+// allowedDimensions is set, a dimension must also match one of its patterns.
+type MetricConstraint struct {
+	// Metric is the name of an ossie.metrics entry.
+	Metric string `json:"metric"`
+	// AllowedDimensions, when set, are the only dimensions the metric can be
+	// grouped by.
+	// +optional
+	AllowedDimensions []string `json:"allowedDimensions,omitempty"`
+	// DeniedDimensions are dimensions the metric can never be grouped by.
+	// +optional
+	DeniedDimensions []string `json:"deniedDimensions,omitempty"`
 }
 
 // Metric is a model-level aggregate measure.

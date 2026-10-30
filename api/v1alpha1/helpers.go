@@ -1,5 +1,10 @@
 package v1alpha1
 
+import (
+	"fmt"
+	"strings"
+)
+
 // DialectPreference is the order in which expression dialects are selected
 // for compilation. STARROCKS is an operator extension dialect; ANSI_SQL is
 // the Ossie default and is passed through to StarRocks unchanged.
@@ -58,4 +63,42 @@ func (g *GovernanceSpec) Role(name string) *RolePolicy {
 		}
 	}
 	return nil
+}
+
+// FindMetricConstraint returns the constraint for the named metric, if any.
+func (s *SemanticModelSpec) FindMetricConstraint(metric string) *MetricConstraint {
+	for i := range s.MetricConstraints {
+		if s.MetricConstraints[i].Metric == metric {
+			return &s.MetricConstraints[i]
+		}
+	}
+	return nil
+}
+
+// MatchDimensionPattern reports whether a "dataset.field" reference matches a
+// metric constraint pattern, which is either "dataset.field" or "dataset.*".
+func MatchDimensionPattern(pattern, ref string) bool {
+	if ds, ok := strings.CutSuffix(pattern, ".*"); ok {
+		return strings.HasPrefix(ref, ds+".")
+	}
+	return pattern == ref
+}
+
+// Refusal returns why the constraint stops its metric from being grouped by
+// ref, or "" when it is allowed. A denied pattern wins over an allowed one.
+func (c *MetricConstraint) Refusal(ref string) string {
+	for _, p := range c.DeniedDimensions {
+		if MatchDimensionPattern(p, ref) {
+			return fmt.Sprintf("denied by metricConstraints pattern %q", p)
+		}
+	}
+	if len(c.AllowedDimensions) == 0 {
+		return ""
+	}
+	for _, p := range c.AllowedDimensions {
+		if MatchDimensionPattern(p, ref) {
+			return ""
+		}
+	}
+	return "allowed only " + strings.Join(c.AllowedDimensions, ", ")
 }

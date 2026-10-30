@@ -318,6 +318,11 @@ func Build(cm *CompiledModel, d emitter.Dialect, req Request, id governance.Iden
 	if err != nil {
 		return nil, err
 	}
+	// Metric constraints run after governance, so a caller who may not use a
+	// metric gets a plain 403 and learns nothing about its constraints.
+	if err := checkMetricConstraints(cm, metrics, dims); err != nil {
+		return nil, err
+	}
 	// Expand claim placeholders now, while the dialect is in hand, so a
 	// predicate reaching the builder is already final and safely quoted.
 	groups := make([][]v1alpha1.RowFilter, 0, len(decision.RowFilterGroups))
@@ -452,6 +457,25 @@ func Build(cm *CompiledModel, d emitter.Dialect, req Request, id governance.Iden
 // a join tree rooted at root without fan-out distortion: COUNT DISTINCT is
 // always safe; otherwise every referenced field must live on the root (the
 // many side), which the join cannot duplicate.
+// checkMetricConstraints refuses a request that groups a metric by a dimension
+// its metricConstraints entry does not allow. Metrics and dimensions are
+// checked in request order, so the same request always gets the same error.
+func checkMetricConstraints(cm *CompiledModel, metrics []*CompiledMetric, dims []dimSpec) error {
+	for _, m := range metrics {
+		c, ok := cm.MetricConstraints[m.Name]
+		if !ok {
+			continue
+		}
+		for _, dm := range dims {
+			ref := dm.Ref.Dataset + "." + dm.Ref.Field
+			if why := c.Refusal(ref); why != "" {
+				return fmt.Errorf("metric %q cannot be grouped by %q: %s", m.Name, ref, why)
+			}
+		}
+	}
+	return nil
+}
+
 func termSafe(t expr.AggTerm, root string) bool {
 	if t.Func == "COUNT" && t.Distinct {
 		return true

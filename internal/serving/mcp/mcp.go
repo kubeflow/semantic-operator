@@ -153,7 +153,9 @@ func NewServer(svc *serving.Service, version string, resolver serving.Credential
 			"optional row filters, post-aggregation metric filters, time grain, ordering, and a row limit. " +
 			"Metric filters may reference only requested certified metrics. For highest, lowest, " +
 			"or Top-N questions, order by the requested metric and add every requested " +
-			"dimension to guarantee stable ties before setting the limit. The semantic planner compiles " +
+			"dimension to guarantee stable ties before setting the limit. Some metrics can only be " +
+			"grouped by certain dimensions. If a request is refused for that reason, the error names " +
+			"the metric and the dimension, so drop or change that dimension. The semantic planner compiles " +
 			"the request into deterministic, governed SQL and executes it on the configured " +
 			"query engine. The response includes the SQL for provenance. Do not write SQL yourself.",
 	}, func(ctx context.Context, req *sdk.CallToolRequest, in queryIn) (*sdk.CallToolResult, queryOut, error) {

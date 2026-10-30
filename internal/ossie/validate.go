@@ -233,6 +233,43 @@ func ValidateSpec(spec *v1alpha1.SemanticModelSpec) error {
 		}
 	}
 
+	// Metric constraints: every metric and pattern must point at something
+	// real, so a typo can't silently match nothing. Views are checked against
+	// the constraints here, so a bad view fails validation, not publication.
+	constraintSeen := map[string]bool{}
+	for i := range spec.MetricConstraints {
+		c := &spec.MetricConstraints[i]
+		if !metricNames[c.Metric] {
+			add("metricConstraints[%d]: metric %q does not exist", i, c.Metric)
+		}
+		if constraintSeen[c.Metric] {
+			add("metricConstraints[%d]: duplicate entry for metric %q", i, c.Metric)
+		}
+		constraintSeen[c.Metric] = true
+		if len(c.AllowedDimensions) == 0 && len(c.DeniedDimensions) == 0 {
+			add("metricConstraints[%d]: set allowedDimensions or deniedDimensions", i)
+		}
+		for _, p := range append(append([]string{}, c.AllowedDimensions...), c.DeniedDimensions...) {
+			if msg := checkDimensionPattern(p, datasets); msg != "" {
+				add("metricConstraints[%d]: %s", i, msg)
+			}
+		}
+	}
+	for i := range spec.Views {
+		v := &spec.Views[i]
+		for _, mn := range v.Metrics {
+			c := spec.FindMetricConstraint(mn)
+			if c == nil {
+				continue
+			}
+			for _, dim := range v.Dimensions {
+				if why := c.Refusal(dim); why != "" {
+					add("view %q: metric %q cannot be grouped by %q: %s", v.Name, mn, dim, why)
+				}
+			}
+		}
+	}
+
 	return errors.Join(errs...)
 }
 
@@ -254,6 +291,31 @@ func termDatasets(t expr.AggTerm) []string {
 		}
 	}
 	return out
+}
+
+// checkDimensionPattern returns what is wrong with a metric constraint
+// pattern, or "" when it is valid. A pattern is "dataset.*" or a declared
+// dimension "dataset.field". Other wildcards are rejected.
+func checkDimensionPattern(p string, datasets map[string]*v1alpha1.Dataset) string {
+	ds, f, ok := splitRef(p)
+	if !ok || strings.Contains(ds, "*") || (f != "*" && strings.Contains(f, "*")) {
+		return fmt.Sprintf("pattern %q must be <dataset>.<field> or <dataset>.*", p)
+	}
+	d := datasets[ds]
+	if d == nil {
+		return fmt.Sprintf("pattern %q: dataset %q does not exist", p, ds)
+	}
+	if f == "*" {
+		return ""
+	}
+	field := d.FindField(f)
+	if field == nil {
+		return fmt.Sprintf("pattern %q: field %q not found on dataset %q", p, f, ds)
+	}
+	if field.Dimension == nil {
+		return fmt.Sprintf("pattern %q: %q is not a declared dimension", p, p)
+	}
+	return ""
 }
 
 func splitRef(s string) (dataset, field string, ok bool) {

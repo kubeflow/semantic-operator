@@ -69,6 +69,14 @@ every metric and every field together. This differs from additive Kubernetes RBA
 combined across roles, one role's denied fields and row filters would be cancelled by another
 role that lacks them, and a caller holding both would see more than either role allows.
 
+#### Metric constraints
+
+A model can limit which dimensions each metric can be grouped by, through
+`spec.metricConstraints`. The check runs right after the role policy, so a caller who may not
+use a metric gets a 403 and learns nothing about its constraints. A request that groups a
+metric by a refused dimension fails with an error that names both. No SQL is built. The check
+does not depend on the engine, so StarRocks and Trino refuse the same requests.
+
 #### External authorization
 
 A model can also name an external provider, OPA or Ranger. It adds a second gate and never
