@@ -23,7 +23,8 @@ one schema.
 Structural checks on the Ossie document. Every dataset and metric name is unique.
 Relationships point at datasets that exist. Metric expressions parse under the bounded
 grammar. The join graph is a tree rather than a cycle. Governance policies reference fields
-that exist.
+that exist. Metric constraints name real metrics and declared dimensions, and no view breaks
+them.
 
 This step is pure, with no network calls, so the same model always validates the same way.
 Failures set `Validated=False` with every problem listed at once rather than the first one

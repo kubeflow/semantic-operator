@@ -167,6 +167,29 @@ The metric grammar is small, and `ossiectl validate` checks it.
 - Fan-out safety. If a ratio's denominator aggregates a dimension across a join, like `SUM(store.s_number_employees)` over the sales fact, that dataset needs a `primary_key` so the planner can deduplicate before aggregating. `validate` tells you when it is missing. This is the class of query raw text-to-SQL gets wrong. The planner handles it by construction.
 - Missing groups. Before metric filters apply, a split ratio returns every group that either side has. When a group has no rows on one side, the ratio is NULL for that group. A zero denominator also gives NULL. A metric cannot yet declare that missing activity means zero.
 
+### Limit which dimensions a metric can use
+
+Some metrics only make sense at certain grains. A metric built on current, unsnapshotted data can be split by account, but grouping it by a historical date gives a result that looks valid and means nothing. Write that rule down as a `spec.metricConstraints` entry, an operator extension sibling to `joins`:
+
+```yaml
+metricConstraints:
+  - metric: licensed_seat_utilization
+    allowedDimensions:
+      - account.*
+      - product_feature.*
+    deniedDimensions:
+      - date_dim.*
+```
+
+- A pattern is a declared dimension such as `account.region`, or `dataset.*` for every field of a dataset. No other wildcards are accepted.
+- When `allowedDimensions` is set, every requested dimension must match one of its patterns.
+- A dimension that matches `deniedDimensions` is always refused, even if it also matches an allowed pattern.
+- Each entry needs at least one of the two lists, and a metric can have only one entry.
+
+The planner refuses a bad combination before any SQL exists. The error names the metric and the dimension, for example `metric "licensed_seat_utilization" cannot be grouped by "date_dim.d_date": denied by metricConstraints pattern "date_dim.*"`. REST returns it as a 400 and MCP as a tool error. Constraints apply to group-by dimensions only. Filters are not checked.
+
+`ossiectl validate` fails when a constraint names a metric, dataset, or field that does not exist, or a field that is not a declared dimension. It also fails when a view in `spec.views` breaks a constraint. Adding or changing a constraint changes the model version.
+
 ## Step 4. Add business meaning (`ai_context` and `description`)
 
 This is what lets an agent map a user's words to the right metric. Put a `description` and `ai_context.synonyms` on datasets, fields, and metrics.

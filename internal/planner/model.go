@@ -29,6 +29,9 @@ type CompiledModel struct {
 	Governance    *v1alpha1.GovernanceSpec   `json:"governance,omitempty"`
 	Description   string                     `json:"description,omitempty"`
 	AIContext     v1alpha1.AIContext         `json:"aiContext,omitempty"`
+	// MetricConstraints limit which dimensions a metric can be grouped by,
+	// keyed by metric name. Metrics without an entry have no limits.
+	MetricConstraints map[string]v1alpha1.MetricConstraint `json:"metricConstraints,omitempty"`
 }
 
 // CompiledDataset is a dataset with its physical binding resolved.
@@ -166,6 +169,12 @@ func Compile(spec *v1alpha1.SemanticModelSpec, namespace, resource string) (*Com
 			AIContext:   v1alpha1.DecodeAIContext(m.AIContext),
 		}
 		cm.MetricOrder = append(cm.MetricOrder, m.Name)
+	}
+	for _, c := range spec.MetricConstraints {
+		if cm.MetricConstraints == nil {
+			cm.MetricConstraints = map[string]v1alpha1.MetricConstraint{}
+		}
+		cm.MetricConstraints[c.Metric] = c
 	}
 	return cm, nil
 }
