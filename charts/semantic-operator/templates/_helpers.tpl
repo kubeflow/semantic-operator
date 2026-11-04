@@ -73,11 +73,31 @@ connection:
   {{- if $user }}
   user: {{ $user | quote }}
   {{- end }}
-  {{- if (($root.Values.engine.tls) | default dict).enabled }}
+  {{- $tls := $root.Values.engine.tls | default dict }}
+  {{- if $tls.enabled }}
   tlsEnabled: true
   {{- end }}
-  {{- if (($root.Values.engine.tls) | default dict).insecureSkipVerify }}
+  {{- if $tls.insecureSkipVerify }}
   tlsInsecureSkipVerify: true
+  {{- end }}
+  {{- with $tls.serverName }}
+  tlsServerName: {{ . | quote }}
+  {{- end }}
+  {{- /* File paths only appear when a key is named, so a Secret that holds
+         only a CA does not point the client at a certificate that is not
+         mounted. */}}
+  {{- $tlsSecret := $tls.secret | default dict }}
+  {{- if $tlsSecret.name }}
+  {{- $mount := $tlsSecret.mountPath | default "/etc/semantic/engine-tls" }}
+  {{- with $tlsSecret.caKey }}
+  tlsCAFile: {{ printf "%s/%s" $mount . | quote }}
+  {{- end }}
+  {{- with $tlsSecret.certKey }}
+  tlsCertFile: {{ printf "%s/%s" $mount . | quote }}
+  {{- end }}
+  {{- with $tlsSecret.keyKey }}
+  tlsKeyFile: {{ printf "%s/%s" $mount . | quote }}
+  {{- end }}
   {{- end }}
 {{- if eq .component "server" }}
 {{- $mode := $root.Values.engine.identityMode | default "static" }}

@@ -62,13 +62,27 @@ type Config struct {
 	MaxResultBytes int
 	// TLSEnabled forces an HTTPS engine connection. It is needed when the
 	// engine requires TLS but no password is set, for example token-based
-	// authentication. A password also implies HTTPS.
+	// authentication. A password also implies HTTPS. Setting any other TLS
+	// field implies it too, so a deployment that only trusts a private CA
+	// cannot accidentally fall back to plaintext.
 	TLSEnabled bool
 	// TLSInsecureSkipVerify disables server certificate verification for the
 	// engine connection. It is for isolated development against a self-signed
-	// engine only, and must stay false in production. Honored by the Trino
-	// client; the StarRocks client does not yet consume it.
+	// engine only, and must stay false in production.
 	TLSInsecureSkipVerify bool
+	// TLSServerName overrides the name verified against the engine's server
+	// certificate. Empty uses Host, which is correct whenever the certificate
+	// names the address the client dials.
+	TLSServerName string
+	// TLSCAFile is a PEM bundle added to the system roots for the engine
+	// connection. It exists for engines signed by a private CA that is not in
+	// the pod's trust store.
+	TLSCAFile string
+	// TLSCertFile and TLSKeyFile enable mutual TLS to the engine. They must be
+	// supplied together: a client certificate without its key cannot
+	// authenticate, and a key without its certificate is unused.
+	TLSCertFile string
+	TLSKeyFile  string
 }
 
 // Factory builds a client for one engine.
@@ -141,6 +155,10 @@ func EnvConfig() (Config, error) {
 	case "true", "1", "yes":
 		cfg.TLSInsecureSkipVerify = true
 	}
+	cfg.TLSServerName = os.Getenv("ENGINE_TLS_SERVER_NAME")
+	cfg.TLSCAFile = os.Getenv("ENGINE_TLS_CA_FILE")
+	cfg.TLSCertFile = os.Getenv("ENGINE_TLS_CERT_FILE")
+	cfg.TLSKeyFile = os.Getenv("ENGINE_TLS_KEY_FILE")
 	return cfg, nil
 }
 

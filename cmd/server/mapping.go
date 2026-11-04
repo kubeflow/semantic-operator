@@ -40,6 +40,10 @@ func toEngineConfig(e EngineConfig, q QueryConfig) dbclient.Config {
 		MaxResultBytes:        q.MaxResultBytes,
 		TLSEnabled:            e.Connection.TLSEnabled,
 		TLSInsecureSkipVerify: e.Connection.TLSInsecureSkipVerify,
+		TLSServerName:         e.Connection.TLSServerName,
+		TLSCAFile:             e.Connection.TLSCAFile,
+		TLSCertFile:           e.Connection.TLSCertFile,
+		TLSKeyFile:            e.Connection.TLSKeyFile,
 	}
 }
 

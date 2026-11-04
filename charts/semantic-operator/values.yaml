@@ -44,12 +44,25 @@ engine:
   tls:
     # Force an HTTPS engine connection. Needed when the engine requires TLS but
     # no password is set, such as token-based authentication. A password also
-    # implies HTTPS.
+    # implies HTTPS, and so does any material named under secret below.
     enabled: false
     # Skip engine server certificate verification. For isolated development
     # against a self-signed engine only. Must stay false in production.
-    # Honored by the Trino client.
     insecureSkipVerify: false
+    # Name verified against the engine certificate. Empty uses engine.host,
+    # which is right unless the certificate names a different hostname.
+    serverName: ""
+    # Optional Secret holding TLS material. It is mounted read-only into both
+    # pods and the named files become the engine connection's trust anchor and
+    # client certificate. Set only the keys the Secret actually contains:
+    # caKey adds a private CA to the trust store, certKey and keyKey enable
+    # mutual TLS and must be set together.
+    secret:
+      name: ""
+      mountPath: /etc/semantic/engine-tls
+      caKey: ""
+      certKey: ""
+      keyKey: ""
   # Empty falls back to starrocks.user (each client also has its own default).
   user: ""
   # Reference an existing Secret holding the password; empty name falls back

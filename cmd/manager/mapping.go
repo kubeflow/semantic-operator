@@ -19,6 +19,10 @@ func toEngineConfig(e EngineConfig) dbclient.Config {
 		QueryTimeout:          e.Connection.QueryTimeout,
 		TLSEnabled:            e.Connection.TLSEnabled,
 		TLSInsecureSkipVerify: e.Connection.TLSInsecureSkipVerify,
+		TLSServerName:         e.Connection.TLSServerName,
+		TLSCAFile:             e.Connection.TLSCAFile,
+		TLSCertFile:           e.Connection.TLSCertFile,
+		TLSKeyFile:            e.Connection.TLSKeyFile,
 	}
 }
 

@@ -5,7 +5,6 @@ package trino
 
 import (
 	"context"
-	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -53,8 +52,14 @@ func Open(cfg dbclient.Config) (*Client, error) {
 	if cfg.User == "" {
 		cfg.User = "semantic-operator"
 	}
+	// TLS material is read once, before any dial. A bad CA bundle or an
+	// unreadable client key is a startup error, never a first-query surprise.
+	tlsConfig, err := cfg.TLSConfig()
+	if err != nil {
+		return nil, err
+	}
 	scheme := "http"
-	if cfg.TLSEnabled || cfg.Password != "" {
+	if cfg.TLSEnabled || cfg.Password != "" || tlsConfig != nil {
 		scheme = "https"
 	}
 	t := cfg.QueryTimeout
@@ -67,13 +72,14 @@ func Open(cfg dbclient.Config) (*Client, error) {
 	}
 	c := &Client{host: cfg.Host, port: cfg.Port, scheme: scheme, timeout: t, maxBytes: maxBytes}
 
-	// Skip-verify is opt-in for a self-signed engine in isolated development.
-	// It is wired through a registered custom client, because the driver only
-	// exposes certificate trust through a provided CA or a custom client.
-	if scheme == "https" && cfg.TLSInsecureSkipVerify {
-		key := fmt.Sprintf("semantic-insecure-%s-%d", cfg.Host, cfg.Port)
+	// Certificate trust and client certificates are wired through a registered
+	// custom client, because the driver exposes neither a CA bundle nor a
+	// client keypair directly. Skip-verify is the development special case of
+	// the same mechanism.
+	if scheme == "https" && tlsConfig != nil {
+		key := fmt.Sprintf("semantic-tls-%s-%d", cfg.Host, cfg.Port)
 		if err := trinodriver.RegisterCustomClient(key, &http.Client{
-			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+			Transport: &http.Transport{TLSClientConfig: tlsConfig},
 		}); err != nil {
 			return nil, err
 		}

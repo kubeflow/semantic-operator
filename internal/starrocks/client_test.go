@@ -2,6 +2,8 @@ package starrocks
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -67,5 +69,42 @@ func TestClientSupportsPerRequestIdentity(t *testing.T) {
 
 	if _, ok := any(c).(dbclient.PerRequestIdentityClient); !ok {
 		t.Fatal("StarRocks client must implement dbclient.PerRequestIdentityClient")
+	}
+}
+
+func TestOpenBuildsTLSConfigFromMaterial(t *testing.T) {
+	c, err := Open(Config{Host: "starrocks.example", TLSEnabled: true})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	if c.tlsConfig == nil {
+		t.Fatal("TLS was requested but the client holds no tls.Config")
+	}
+	if c.tlsConfig.ServerName != "starrocks.example" {
+		t.Errorf("ServerName = %q, want the engine host", c.tlsConfig.ServerName)
+	}
+}
+
+func TestOpenWithoutTLSHasNoTLSConfig(t *testing.T) {
+	c, err := Open(Config{Host: "starrocks.example"})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	if c.tlsConfig != nil {
+		t.Errorf("tlsConfig = %+v, want nil for a plaintext connection", c.tlsConfig)
+	}
+}
+
+func TestOpenRejectsUnreadableTLSCA(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "ca.pem")
+	if err := os.WriteFile(path, []byte("not a certificate"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(Config{Host: "starrocks.example", TLSCAFile: path}); err == nil {
+		t.Fatal("Open accepted a CA bundle that holds no certificate")
 	}
 }
