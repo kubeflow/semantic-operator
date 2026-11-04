@@ -1,3 +1,4 @@
+{{- $engineTLS := ((.Values.engine.tls | default dict).secret) | default dict -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -115,11 +116,21 @@ spec:
             - name: config
               mountPath: /etc/semantic-operator
               readOnly: true
+            {{- if $engineTLS.name }}
+            - name: engine-tls
+              mountPath: {{ $engineTLS.mountPath | default "/etc/semantic/engine-tls" }}
+              readOnly: true
+            {{- end }}
           resources: {{- toYaml .Values.server.resources | nindent 12 }}
       volumes:
         - name: config
           configMap:
             name: {{ include "semantic-operator.name" . }}-server-config
+        {{- if $engineTLS.name }}
+        - name: engine-tls
+          secret:
+            secretName: {{ $engineTLS.name }}
+        {{- end }}
       {{- /* Must exceed the preStop pause plus the server's own 10s shutdown
              deadline, or the kubelet kills it mid-drain. */}}
       terminationGracePeriodSeconds: {{ (.Values.server.gracefulShutdown | default dict).terminationGracePeriodSeconds | default 30 }}

@@ -55,12 +55,12 @@ func Open(cfg Config) (*Client, error) {
 	}
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 
-	var tlsConfig *tls.Config
-	if cfg.TLSEnabled || cfg.TLSInsecureSkipVerify {
-		tlsConfig = &tls.Config{
-			ServerName:         cfg.Host,
-			InsecureSkipVerify: cfg.TLSInsecureSkipVerify, //nolint:gosec // opt-in for self-signed development engines only
-		}
+	// One tls.Config for the pool and for every per-request connection. A
+	// StarRocks engine that requires a private CA or a client certificate is
+	// entered through the same settings as Trino.
+	tlsConfig, err := cfg.TLSConfig()
+	if err != nil {
+		return nil, err
 	}
 
 	connector, err := mysql.NewConnector(baseConfig(addr, cfg.User, cfg.Password, tlsConfig))

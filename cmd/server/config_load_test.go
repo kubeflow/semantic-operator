@@ -133,6 +133,9 @@ store:
 	t.Setenv("SEMANTIC__QUERY_MAX_CONCURRENT", "20")
 	t.Setenv("SEMANTIC__EXPOSE_METRIC_EXPRESSIONS", "true")
 	t.Setenv("SEMANTIC__IDLE_TIMEOUT", "300s")
+	t.Setenv("SEMANTIC__ENGINE_TLS_CA_FILE", "/etc/semantic/tls/ca.crt")
+	t.Setenv("SEMANTIC__ENGINE_TLS_CERT_FILE", "/etc/semantic/tls/tls.crt")
+	t.Setenv("SEMANTIC__ENGINE_TLS_KEY_FILE", "/etc/semantic/tls/tls.key")
 
 	cfg, err := Load(path)
 	if err != nil {
@@ -152,6 +155,11 @@ store:
 	}
 	if cfg.Server.IdleTimeout != 300*time.Second {
 		t.Errorf("idle_timeout = %v, want env 300s", cfg.Server.IdleTimeout)
+	}
+	if cfg.Engine.Connection.TLSCAFile != "/etc/semantic/tls/ca.crt" ||
+		cfg.Engine.Connection.TLSCertFile != "/etc/semantic/tls/tls.crt" ||
+		cfg.Engine.Connection.TLSKeyFile != "/etc/semantic/tls/tls.key" {
+		t.Errorf("engine TLS files = %+v", cfg.Engine.Connection)
 	}
 }
 

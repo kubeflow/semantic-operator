@@ -62,6 +62,14 @@ type ConnectionConfig struct {
 	TLSEnabled bool `yaml:"tlsEnabled" env:"ENGINE_TLS_ENABLED"`
 	// TLSInsecureSkipVerify disables certificate verification; development only.
 	TLSInsecureSkipVerify bool `yaml:"tlsInsecureSkipVerify" env:"ENGINE_TLS_INSECURE_SKIP_VERIFY"`
+	// TLSServerName overrides the certificate name to verify against. Empty
+	// uses the engine host.
+	TLSServerName string `yaml:"tlsServerName" env:"ENGINE_TLS_SERVER_NAME"`
+	// TLSCAFile is a PEM bundle added to the system roots for the engine.
+	TLSCAFile string `yaml:"tlsCAFile" env:"ENGINE_TLS_CA_FILE"`
+	// TLSCertFile and TLSKeyFile enable mutual TLS. Set both or neither.
+	TLSCertFile string `yaml:"tlsCertFile" env:"ENGINE_TLS_CERT_FILE"`
+	TLSKeyFile  string `yaml:"tlsKeyFile" env:"ENGINE_TLS_KEY_FILE"`
 }
 
 // EngineIdentityConfig selects how a query authenticates to the engine. static

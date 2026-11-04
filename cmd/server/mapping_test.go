@@ -10,13 +10,23 @@ import (
 func TestToEngineConfigSharesMaxResultBytes(t *testing.T) {
 	cfg := Config{
 		Engine: EngineConfig{
-			Connection: ConnectionConfig{Host: "h", Port: 8443, User: "u", TLSEnabled: true},
+			Connection: ConnectionConfig{
+				Host: "h", Port: 8443, User: "u", TLSEnabled: true,
+				TLSServerName: "engine.example", TLSCAFile: "/tls/ca.crt",
+				TLSCertFile: "/tls/tls.crt", TLSKeyFile: "/tls/tls.key",
+			},
 		},
 		Query: QueryConfig{MaxResultBytes: 4096},
 	}
 	got := toEngineConfig(cfg.Engine, cfg.Query)
 	if got.Host != "h" || got.Port != 8443 || got.User != "u" || !got.TLSEnabled {
 		t.Errorf("engine config = %+v", got)
+	}
+	// Every TLS field must reach the client, or a private CA silently degrades
+	// to an unverified connection.
+	if got.TLSServerName != "engine.example" || got.TLSCAFile != "/tls/ca.crt" ||
+		got.TLSCertFile != "/tls/tls.crt" || got.TLSKeyFile != "/tls/tls.key" {
+		t.Errorf("TLS settings dropped in the mapping: %+v", got)
 	}
 	// The engine client and the service must share one result ceiling.
 	if got.MaxResultBytes != 4096 {

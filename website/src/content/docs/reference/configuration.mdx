@@ -124,6 +124,39 @@ The chart resolves the operator's and server's engine credentials independently,
 Keep them as separate database users. Sharing one user would give the query path the ability
 to alter schemas, which is the boundary the split exists to hold.
 
+## Engine transport security
+
+The engine connection is plaintext by default, because the common deployment reaches a
+database on the cluster network. Set `engine.tls.enabled` when the engine terminates TLS, or
+when the identity mode is `passthrough`, since a caller token travels in the password field.
+
+```yaml
+engine:
+  tls:
+    enabled: true
+    serverName: starrocks.internal
+    secret:
+      name: engine-tls
+      caKey: ca.crt
+      certKey: tls.crt
+      keyKey: tls.key
+```
+
+The fields mean the following.
+
+| Setting | Effect |
+|---|---|
+| `enabled` | Use TLS at all. A password also implies it, and so does any other TLS setting. |
+| `serverName` | Certificate name to verify. Empty uses `engine.host`. |
+| `secret.caKey` | Add a private CA to the trust store, on top of the system roots. |
+| `secret.certKey` and `secret.keyKey` | Present a client certificate for mutual TLS. Set both or neither. |
+| `insecureSkipVerify` | Disable verification. For an isolated self-signed engine only. |
+
+The Secret is mounted read-only into both pods and the chart writes the resulting file paths
+into the rendered config. Name only the keys the Secret holds, so the client is never pointed
+at a file that is not mounted. Material is read at startup, so a missing CA or an unreadable
+key fails the pod instead of the first query.
+
 ## Publication size
 
 The compiled artifact is an uncompressed ConfigMap, roughly 2.4 KB per dataset. A ConfigMap

@@ -1,3 +1,4 @@
+{{- $engineTLS := ((.Values.engine.tls | default dict).secret) | default dict -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -52,11 +53,21 @@ spec:
             - name: config
               mountPath: /etc/semantic-operator
               readOnly: true
+            {{- if $engineTLS.name }}
+            - name: engine-tls
+              mountPath: {{ $engineTLS.mountPath | default "/etc/semantic/engine-tls" }}
+              readOnly: true
+            {{- end }}
           resources: {{- toYaml .Values.manager.resources | nindent 12 }}
       volumes:
         - name: config
           configMap:
             name: {{ include "semantic-operator.name" . }}-manager-config
+        {{- if $engineTLS.name }}
+        - name: engine-tls
+          secret:
+            secretName: {{ $engineTLS.name }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector: {{- toYaml . | nindent 8 }}
       {{- end }}
