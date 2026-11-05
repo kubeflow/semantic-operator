@@ -377,3 +377,52 @@ func TestArtifactUnderTheCeilingStillPublishes(t *testing.T) {
 		t.Fatalf("an artifact under the ceiling should publish: %v", err)
 	}
 }
+
+func TestPrimaryKeyDrift(t *testing.T) {
+	compiled := &planner.CompiledModel{
+		DatasetOrder: []string{"orders", "item", "customer", "gone"},
+		Datasets: map[string]*planner.CompiledDataset{
+			"orders":   {PrimaryKey: []string{"o_id", "o_line"}},
+			"item":     {PrimaryKey: []string{"i_id"}}, // present: no drift
+			"customer": {},
+			"gone":     {PrimaryKey: []string{"g_id"}},
+		},
+	}
+	tableCols := map[string]map[string]string{
+		"orders":   {"o_id": "bigint"},
+		"item":     {"i_id": "bigint"},
+		"customer": {"c_id": "bigint"},
+		// "gone" could not be described, so it is already reported as drift.
+	}
+	got := primaryKeyDrift(compiled, tableCols)
+	want := []string{"dataset orders: primary_key column o_line missing"}
+	if len(got) != len(want) || got[0] != want[0] {
+		t.Fatalf("primaryKeyDrift = %q, want %q", got, want)
+	}
+}
+
+func TestReconcileFlagsMissingPrimaryKeyColumn(t *testing.T) {
+	scheme := testScheme(t)
+	cr := demoCR()
+	cr.Spec.Ossie.Datasets[1].PrimaryKey = []string{"i_item_skk"} // typo
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cr).
+		WithStatusSubresource(&semanticv1alpha1.SemanticModel{}).Build()
+	d, _ := emitter.Get("starrocks")
+	r := &SemanticModelReconciler{Client: cl, DB: &fakeStarRocks{tables: healthyTables()}, Dialect: d}
+
+	name := types.NamespacedName{Name: "retail", Namespace: "default"}
+	reconcileOnce(t, r, name)
+
+	var got semanticv1alpha1.SemanticModel
+	if err := cl.Get(context.Background(), name, &got); err != nil {
+		t.Fatal(err)
+	}
+	c := meta.FindStatusCondition(got.Status.Conditions, semanticv1alpha1.ConditionDriftDetected)
+	if c == nil || c.Status != metav1.ConditionTrue || !strings.Contains(c.Message, "dataset item: primary_key column i_item_skk missing") {
+		t.Fatalf("expected DriftDetected=True naming the primary key, got %+v", c)
+	}
+	var cm corev1.ConfigMap
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: "sm-retail-compiled", Namespace: "default"}, &cm); err == nil {
+		t.Fatal("drift must block publication of the artifact")
+	}
+}
