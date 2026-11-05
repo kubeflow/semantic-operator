@@ -168,9 +168,30 @@ func (r *SemanticModelReconciler) statusUpdate(ctx context.Context, sm *semantic
 	return err
 }
 
-// bind introspects every dataset table and cross-checks relationship columns
-// and identity-expression fields. It fills physical column types into the
-// compiled artifact. Returns drift messages (not errors) per dataset.
+// primaryKeyDrift reports primary_key columns that are absent from the live
+// table. The planner deduplicates fan-out joins on these columns, so a typo
+// would otherwise publish cleanly and fail only at the first affected query.
+// Datasets whose table could not be described are skipped: they are already
+// reported as drift.
+func primaryKeyDrift(compiled *planner.CompiledModel, tableCols map[string]map[string]string) []string {
+	var drift []string
+	for _, name := range compiled.DatasetOrder {
+		cols := tableCols[name]
+		if cols == nil {
+			continue
+		}
+		for _, pk := range compiled.Datasets[name].PrimaryKey {
+			if _, ok := cols[pk]; !ok {
+				drift = append(drift, fmt.Sprintf("dataset %s: primary_key column %s missing", name, pk))
+			}
+		}
+	}
+	return drift
+}
+
+// bind introspects every dataset table and cross-checks relationship columns,
+// primary keys and identity-expression fields. It fills physical column types
+// into the compiled artifact. Returns drift messages (not errors) per dataset.
 func (r *SemanticModelReconciler) bind(ctx context.Context, compiled *planner.CompiledModel) ([]string, []semanticv1alpha1.DatasetBinding, error) {
 	var drift []string
 	var bindings []semanticv1alpha1.DatasetBinding
@@ -230,6 +251,8 @@ func (r *SemanticModelReconciler) bind(ctx context.Context, compiled *planner.Co
 			}
 		}
 	}
+
+	drift = append(drift, primaryKeyDrift(compiled, tableCols)...)
 
 	// Governance row filters reference physical columns of their dataset. The
 	// grammar was validated earlier; here we cross-check the referenced columns
