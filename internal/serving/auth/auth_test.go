@@ -317,3 +317,56 @@ func TestNewValidatesConfig(t *testing.T) {
 		t.Error("an unreachable JWKS must fail at startup")
 	}
 }
+
+// Leeway tolerates clock skew on exp and nbf, and only up to its size.
+func TestLeewayToleratesClockSkew(t *testing.T) {
+	s := newJWKS(t)
+	claims := func(exp, nbf time.Duration) jwt.MapClaims {
+		now := time.Now()
+		return jwt.MapClaims{
+			"role": "analyst",
+			"iss":  "https://issuer.example",
+			"aud":  "semantic",
+			"exp":  now.Add(exp).Unix(),
+			"nbf":  now.Add(nbf).Unix(),
+		}
+	}
+	cases := []struct {
+		name   string
+		claims jwt.MapClaims
+		leeway time.Duration
+		valid  bool
+	}{
+		{"just expired, no leeway", claims(-5*time.Second, -time.Hour), 0, false},
+		{"just expired, within leeway", claims(-5*time.Second, -time.Hour), 10 * time.Second, true},
+		{"expired beyond leeway", claims(-30*time.Second, -time.Hour), 10 * time.Second, false},
+		{"not yet valid, no leeway", claims(time.Hour, 5*time.Second), 0, false},
+		{"not yet valid, within leeway", claims(time.Hour, 5*time.Second), 10 * time.Second, true},
+		{"not yet valid beyond leeway", claims(time.Hour, 30*time.Second), 10 * time.Second, false},
+	}
+	for _, tc := range cases {
+		a := jwtAuth(t, s, Options{Leeway: tc.leeway})
+		_, err := a.Authenticate(req("Bearer "+s.sign(t, tc.claims), ""))
+		if tc.valid && err != nil {
+			t.Errorf("%s: unexpected error %v", tc.name, err)
+		}
+		if !tc.valid && !errors.Is(err, ErrUnauthenticated) {
+			t.Errorf("%s: err = %v, want ErrUnauthenticated", tc.name, err)
+		}
+	}
+}
+
+func TestNewBoundsLeeway(t *testing.T) {
+	s := newJWKS(t)
+	opts := func(l time.Duration) Options {
+		return Options{Mode: ModeJWT, JWKSURL: s.URL, Issuer: "https://issuer.example", Audience: "semantic", Leeway: l}
+	}
+	for _, l := range []time.Duration{-time.Second, MaxLeeway + time.Second} {
+		if _, err := New(context.Background(), opts(l)); err == nil || !strings.Contains(err.Error(), "leeway") {
+			t.Errorf("leeway %s: err = %v, want an error naming leeway", l, err)
+		}
+	}
+	if _, err := New(context.Background(), opts(MaxLeeway)); err != nil {
+		t.Errorf("leeway at the cap must be accepted: %v", err)
+	}
+}

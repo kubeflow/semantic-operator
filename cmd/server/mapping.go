@@ -54,6 +54,7 @@ func toAuthOptions(a AuthConfig) auth.Options {
 		GroupsClaim:     a.GroupsClaim,
 		ClaimsToCopy:    a.ClaimsToCopy,
 		EngineUserClaim: a.EngineUserClaim,
+		Leeway:          a.Leeway,
 	}
 }
 
