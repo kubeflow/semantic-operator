@@ -26,6 +26,10 @@ In `jwt` mode a bearer token is validated against the issuer's JWKS.
 
 - Signature, expiry, issuer, and audience are all checked, and only asymmetric algorithms are
   accepted because the key set is public.
+- Clock skew between the issuer and the server is not tolerated by default. Set
+  `server.auth.leeway` (for example `10s`, at most `1m`) to allow that much skew on `exp`,
+  `nbf`, and `iat`. A larger leeway keeps expired tokens valid for longer. Passthrough and
+  exchange forward the token unchanged, so the engine applies its own clock check.
 - The principal defaults to the `sub` claim and can be pointed at another claim.
 - Directory groups and application roles are kept separate. Built-in governance uses their
   union as policy labels, and an external provider receives both namespaces.
