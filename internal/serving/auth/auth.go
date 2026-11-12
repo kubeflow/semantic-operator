@@ -118,6 +118,9 @@ func New(ctx context.Context, opts Options) (*Authenticator, error) {
 	if opts.Audience == "" {
 		return nil, errors.New("auth: audience is required in jwt mode; without it a token minted for another audience would be accepted")
 	}
+	if opts.RefreshInterval < 0 {
+		return nil, fmt.Errorf("auth: refreshInterval must not be negative, got %s", opts.RefreshInterval)
+	}
 	if opts.RefreshInterval == 0 {
 		opts.RefreshInterval = time.Hour
 	}
@@ -136,7 +139,7 @@ func New(ctx context.Context, opts Options) (*Authenticator, error) {
 	if err := probeJWKS(ctx, opts.JWKSURL); err != nil {
 		return nil, fmt.Errorf("auth: %w", err)
 	}
-	k, err := keyfunc.NewDefaultCtx(ctx, []string{opts.JWKSURL})
+	k, err := keyfunc.NewDefaultOverrideCtx(ctx, []string{opts.JWKSURL}, keyfunc.Override{RefreshInterval: opts.RefreshInterval})
 	if err != nil {
 		return nil, fmt.Errorf("auth: loading JWKS from %s: %w", opts.JWKSURL, err)
 	}

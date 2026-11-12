@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,8 +22,9 @@ import (
 // jwksServer serves a JWKS for a generated RSA key and mints tokens with it.
 type jwksServer struct {
 	*httptest.Server
-	key *rsa.PrivateKey
-	kid string
+	key  *rsa.PrivateKey
+	kid  string
+	hits atomic.Int32 // JWKS fetches served
 }
 
 func newJWKS(t *testing.T) *jwksServer {
@@ -33,6 +35,7 @@ func newJWKS(t *testing.T) *jwksServer {
 	}
 	s := &jwksServer{key: key, kid: "test-key"}
 	s.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		s.hits.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []map[string]string{{
 			"kty": "RSA",
@@ -307,6 +310,13 @@ func TestNewValidatesConfig(t *testing.T) {
 	}); err == nil {
 		t.Error("jwt mode without an audience must fail at startup")
 	}
+	// Use a reachable JWKS so the interval is the only possible cause.
+	if _, err := New(context.Background(), Options{
+		Mode: ModeJWT, JWKSURL: newJWKS(t).URL, Issuer: "https://issuer.example",
+		Audience: "semantic", RefreshInterval: -time.Second,
+	}); err == nil || !strings.Contains(err.Error(), "refreshInterval") {
+		t.Errorf("a negative refresh interval must fail naming refreshInterval, got %v", err)
+	}
 	// An unreachable issuer must fail fast rather than at first query.
 	if _, err := New(context.Background(), Options{
 		Mode:     ModeJWT,
@@ -315,5 +325,27 @@ func TestNewValidatesConfig(t *testing.T) {
 		Audience: "semantic",
 	}); err == nil {
 		t.Error("an unreachable JWKS must fail at startup")
+	}
+}
+
+// RefreshInterval must reach the JWKS client. Startup costs two fetches (the
+// reachability probe and the initial load), so any further fetch comes from
+// the background refresh running at the configured interval.
+func TestRefreshIntervalIsApplied(t *testing.T) {
+	srv := newJWKS(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	if _, err := New(ctx, Options{
+		Mode: ModeJWT, JWKSURL: srv.URL, Issuer: "https://issuer.example",
+		Audience: "semantic", RefreshInterval: 50 * time.Millisecond,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for srv.hits.Load() <= 2 {
+		if time.Now().After(deadline) {
+			t.Fatalf("JWKS fetched %d times, want a background refresh beyond the 2 startup fetches", srv.hits.Load())
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 }
