@@ -108,17 +108,19 @@ func NewServer(svc *serving.Service, version string, resolver serving.Credential
 	}, nil)
 
 	sdk.AddTool(srv, &sdk.Tool{
-		Name:        "list_models",
-		Description: "List published semantic models.",
+		Name: "list_models",
+		Description: "List published semantic models. A model's instructions apply to every " +
+			"query against it, and its examples show the questions it is meant to answer.",
 	}, func(ctx context.Context, req *sdk.CallToolRequest, _ listModelsIn) (*sdk.CallToolResult, listModelsOut, error) {
 		return nil, listModelsOut{Models: svc.Models(serving.IdentityFrom(ctx))}, nil
 	})
 
 	sdk.AddTool(srv, &sdk.Tool{
 		Name: "list_metrics",
-		Description: "List certified metrics with descriptions and synonyms. " +
-			"Always ground the user's vocabulary here before querying: a phrase like " +
-			"'revenue' or 'CLV' maps to exactly one certified metric.",
+		Description: "List certified metrics with descriptions, usage instructions, synonyms, " +
+			"and example questions. Always ground the user's vocabulary here before querying: " +
+			"a phrase like 'revenue' or 'CLV' maps to exactly one certified metric. " +
+			"Follow a metric's instructions when deciding whether it fits the question.",
 	}, func(ctx context.Context, req *sdk.CallToolRequest, in listIn) (*sdk.CallToolResult, listMetricsOut, error) {
 		m, err := svc.Resolve(in.Model, serving.IdentityFrom(ctx))
 		if err != nil {
@@ -134,7 +136,7 @@ func NewServer(svc *serving.Service, version string, resolver serving.Credential
 	sdk.AddTool(srv, &sdk.Tool{
 		Name: "list_dimensions",
 		Description: "List explicitly declared group-by dimensions (dataset.field) with " +
-			"types, synonyms, and time-dimension flags.",
+			"types, time-dimension flags, usage instructions, synonyms, and example questions.",
 	}, func(ctx context.Context, req *sdk.CallToolRequest, in listIn) (*sdk.CallToolResult, listDimensionsOut, error) {
 		m, err := svc.Resolve(in.Model, serving.IdentityFrom(ctx))
 		if err != nil {
