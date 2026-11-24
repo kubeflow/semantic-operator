@@ -377,3 +377,73 @@ func TestArtifactUnderTheCeilingStillPublishes(t *testing.T) {
 		t.Fatalf("an artifact under the ceiling should publish: %v", err)
 	}
 }
+
+// Regression test for https://github.com/kubeflow/semantic-operator/issues/43.
+//
+// When reconcileViews() triggers an annotation update via r.Update(), the
+// controller-runtime client refreshes the in-memory SemanticModel from the API
+// server. Because status is a separate subresource, that refresh overwrites any
+// conditions that were set during the current reconcile cycle but not yet
+// persisted. The fix saves and restores sm.Status around the r.Update() call,
+// so that all five conditions (Validated, Compiled, Published, DriftDetected,
+// ViewsReady) are present after reconciliation.
+func TestReconcileAnnotationUpdatePreservesAllConditions(t *testing.T) {
+	scheme := testScheme(t)
+	cr := demoCR()
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cr).
+		WithStatusSubresource(&semanticv1alpha1.SemanticModel{}).Build()
+	srx := &fakeStarRocks{tables: healthyTables()}
+	d, _ := emitter.Get("starrocks")
+	r := &SemanticModelReconciler{Client: cl, DB: srx, Dialect: d}
+
+	name := types.NamespacedName{Name: "retail", Namespace: "default"}
+	reconcileOnce(t, r, name)
+
+	var got semanticv1alpha1.SemanticModel
+	if err := cl.Get(context.Background(), name, &got); err != nil {
+		t.Fatal(err)
+	}
+
+	// All five conditions must be present and true after a successful reconcile
+	// that also updates the owned-views annotation.
+	for _, cond := range []string{
+		semanticv1alpha1.ConditionValidated,
+		semanticv1alpha1.ConditionCompiled,
+		semanticv1alpha1.ConditionPublished,
+		semanticv1alpha1.ConditionViewsReady,
+	} {
+		if !meta.IsStatusConditionTrue(got.Status.Conditions, cond) {
+			t.Errorf("condition %s lost after annotation update: %+v", cond, got.Status.Conditions)
+		}
+	}
+	// DriftDetected must be False (no drift in healthyTables).
+	if meta.IsStatusConditionTrue(got.Status.Conditions, semanticv1alpha1.ConditionDriftDetected) {
+		t.Error("unexpected DriftDetected=True after annotation update")
+	}
+
+	// Trigger a second reconcile that also changes the owned-views annotation
+	// (simulate a view being removed) and verify conditions are still preserved.
+	cr2 := &semanticv1alpha1.SemanticModel{}
+	if err := cl.Get(context.Background(), name, cr2); err != nil {
+		t.Fatal(err)
+	}
+	cr2.Spec.Views = nil
+	if err := cl.Update(context.Background(), cr2); err != nil {
+		t.Fatal(err)
+	}
+	reconcileOnce(t, r, name)
+
+	var got2 semanticv1alpha1.SemanticModel
+	if err := cl.Get(context.Background(), name, &got2); err != nil {
+		t.Fatal(err)
+	}
+	for _, cond := range []string{
+		semanticv1alpha1.ConditionValidated,
+		semanticv1alpha1.ConditionCompiled,
+		semanticv1alpha1.ConditionPublished,
+	} {
+		if !meta.IsStatusConditionTrue(got2.Status.Conditions, cond) {
+			t.Errorf("condition %s lost on second annotation update: %+v", cond, got2.Status.Conditions)
+		}
+	}
+}

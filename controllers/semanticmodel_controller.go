@@ -381,9 +381,16 @@ func (r *SemanticModelReconciler) reconcileViews(ctx context.Context, sm *semant
 	}
 	if sm.Annotations[semanticv1alpha1.AnnotationOwnedViews] != string(blob) {
 		sm.Annotations[semanticv1alpha1.AnnotationOwnedViews] = string(blob)
+		// r.Update() persists metadata and refreshes sm from the API server.
+		// Because status is a separate subresource, the refresh overwrites any
+		// in-memory status conditions computed earlier in this reconcile cycle.
+		// Save them before the update and restore afterward so that the
+		// subsequent statusUpdate() call persists the full set.
+		savedStatus := sm.Status.DeepCopy()
 		if err := r.Update(ctx, sm); err != nil {
 			return err
 		}
+		sm.Status = *savedStatus
 	}
 	return nil
 }
