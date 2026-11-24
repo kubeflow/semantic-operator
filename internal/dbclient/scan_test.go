@@ -107,8 +107,6 @@ func TestEncodedSizeMatchesRealJSON(t *testing.T) {
 		"html <script> & entities",
 		"unicode ünïcödé 日本語",
 		"JavaScript separators \u2028 and \u2029",
-		string([]byte{0xff}),
-		string([]byte{0xc0, 0xaf}),
 		"valid replacement rune \ufffd",
 		"",
 	}
@@ -120,6 +118,28 @@ func TestEncodedSizeMatchesRealJSON(t *testing.T) {
 		got := jsonStringLen(s)
 		if got != len(encoded) {
 			t.Errorf("jsonStringLen(%q) = %d, json.Marshal produced %d bytes (%s)",
+				s, got, len(encoded), encoded)
+		}
+	}
+}
+
+// Invalid UTF-8 is the one input whose encoded width depends on the
+// encoding/json implementation. The estimate counts the wider form, so it
+// cannot match both. It must still never fall below what json.Marshal
+// produced, because an underestimate lets a result past the ceiling.
+func TestEncodedSizeBoundsInvalidUTF8(t *testing.T) {
+	cases := []string{
+		string([]byte{0xff}),
+		string([]byte{0xc0, 0xaf}),
+	}
+	for _, s := range cases {
+		encoded, err := json.Marshal(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := jsonStringLen(s)
+		if got < len(encoded) {
+			t.Errorf("jsonStringLen(%q) = %d, below the %d bytes json.Marshal produced (%s)",
 				s, got, len(encoded), encoded)
 		}
 	}

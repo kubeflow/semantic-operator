@@ -116,7 +116,11 @@ func jsonStringLen(s string) int {
 		r, size := utf8.DecodeRuneInString(s)
 		switch {
 		case r == utf8.RuneError && size == 1:
-			// encoding/json replaces each invalid UTF-8 byte with \ufffd.
+			// encoding/json replaces each invalid UTF-8 byte with U+FFFD.
+			// The original encoder writes the six-byte \ufffd escape. The
+			// JSON v2 based encoder, the default from Go 1.27, writes the
+			// raw three-byte rune. Counting six keeps the estimate an upper
+			// bound under both.
 			n += 6
 		case r == '"', r == '\\':
 			n += 2
