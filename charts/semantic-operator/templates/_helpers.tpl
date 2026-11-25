@@ -222,6 +222,9 @@ auth:
   claimsToCopy:
 {{ toYaml . | indent 4 }}
   {{- end }}
+  {{- with $auth.leeway }}
+  leeway: {{ . | quote }}
+  {{- end }}
   {{- end }}
   {{- with .Values.engine.userClaim }}
   engineUserClaim: {{ . | quote }}

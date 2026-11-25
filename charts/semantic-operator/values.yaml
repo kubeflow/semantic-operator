@@ -224,6 +224,10 @@ server:
     roleClaim: role
     # Claims copied into the identity for {{claim.name}} row-filter placeholders.
     claimsToCopy: []
+    # Clock skew tolerated when checking exp, nbf, and iat, for example "10s".
+    # Empty allows none. The server rejects values above one minute, because a
+    # larger tolerance keeps expired tokens valid for longer.
+    leeway: ""
   # External query authorization providers. Helm renders this list into the
   # server config file (a ConfigMap mounted read-only by the server).
   # SemanticModels refer to providers by logical name through

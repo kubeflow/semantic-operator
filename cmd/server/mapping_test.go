@@ -3,6 +3,7 @@ package main
 import (
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/kubeflow/semantic-operator/internal/serving/auth"
 )
@@ -43,11 +44,12 @@ func TestToAuthOptions(t *testing.T) {
 		Mode: "jwt", JWKSURL: "j", Issuer: "i", Audience: "a",
 		PrincipalClaim: "p", RoleClaim: "r", GroupsClaim: "g",
 		ClaimsToCopy: []string{"tenant"}, EngineUserClaim: "preferred_username",
+		Leeway: 10 * time.Second,
 	}
 	o := toAuthOptions(a)
 	if o.Mode != auth.Mode("jwt") || o.JWKSURL != "j" || o.Issuer != "i" || o.Audience != "a" ||
 		o.PrincipalClaim != "p" || o.RoleClaim != "r" || o.GroupsClaim != "g" ||
-		len(o.ClaimsToCopy) != 1 || o.EngineUserClaim != "preferred_username" {
+		len(o.ClaimsToCopy) != 1 || o.EngineUserClaim != "preferred_username" || o.Leeway != 10*time.Second {
 		t.Errorf("auth options = %+v", o)
 	}
 }

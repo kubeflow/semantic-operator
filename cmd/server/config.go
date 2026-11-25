@@ -104,6 +104,9 @@ type AuthConfig struct {
 	// EngineUserClaim is the token claim used as the engine session user,
 	// required by the passthrough and exchange identity modes.
 	EngineUserClaim string `yaml:"engineUserClaim" env:"AUTH_ENGINE_USER_CLAIM"`
+	// Leeway is the clock skew tolerated for exp, nbf, and iat, at most one
+	// minute. Zero allows none.
+	Leeway time.Duration `yaml:"leeway" env:"AUTH_LEEWAY"`
 }
 
 // CacheConfig configures the Valkey caches. An empty Addr disables caching.

@@ -30,6 +30,10 @@ import (
 	"github.com/kubeflow/semantic-operator/internal/governance"
 )
 
+// MaxLeeway is the largest clock skew Options.Leeway may allow. Beyond it the
+// tolerance would meaningfully extend token lifetimes.
+const MaxLeeway = time.Minute
+
 // Mode selects how identity is established.
 type Mode string
 
@@ -85,6 +89,10 @@ type Options struct {
 	// RefreshInterval bounds how long a rotated signing key takes to be
 	// picked up. Default 1h.
 	RefreshInterval time.Duration
+	// Leeway is the clock skew tolerated when checking the exp, nbf, and iat
+	// claims. Zero, the default, allows none. A larger leeway keeps expired
+	// tokens valid for longer, so it may not exceed MaxLeeway.
+	Leeway time.Duration
 }
 
 // Authenticator resolves an identity from a request.
@@ -118,6 +126,9 @@ func New(ctx context.Context, opts Options) (*Authenticator, error) {
 	if opts.Audience == "" {
 		return nil, errors.New("auth: audience is required in jwt mode; without it a token minted for another audience would be accepted")
 	}
+	if opts.Leeway < 0 || opts.Leeway > MaxLeeway {
+		return nil, fmt.Errorf("auth: leeway %s must be between 0 and %s", opts.Leeway, MaxLeeway)
+	}
 	if opts.RefreshInterval == 0 {
 		opts.RefreshInterval = time.Hour
 	}
@@ -148,6 +159,9 @@ func New(ctx context.Context, opts Options) (*Authenticator, error) {
 		jwt.WithExpirationRequired(),
 		jwt.WithIssuer(opts.Issuer),
 		jwt.WithAudience(opts.Audience),
+	}
+	if opts.Leeway > 0 {
+		parserOpts = append(parserOpts, jwt.WithLeeway(opts.Leeway))
 	}
 
 	a := &Authenticator{

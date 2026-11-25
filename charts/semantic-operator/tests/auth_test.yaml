@@ -48,6 +48,33 @@ tests:
           path: data["config.yaml"]
           pattern: 'jwksURL: "https://idp.example/jwks"'
 
+  - it: omits leeway unless set
+    set:
+      engine.host: engine.example
+      server.auth.mode: jwt
+      server.auth.jwksURL: https://idp.example/jwks
+    documentSelector:
+      path: metadata.name
+      value: semantic-operator-server-config
+    asserts:
+      - notMatchRegex:
+          path: data["config.yaml"]
+          pattern: 'leeway:'
+
+  - it: renders the jwt clock-skew leeway
+    set:
+      engine.host: engine.example
+      server.auth.mode: jwt
+      server.auth.jwksURL: https://idp.example/jwks
+      server.auth.leeway: 10s
+    documentSelector:
+      path: metadata.name
+      value: semantic-operator-server-config
+    asserts:
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'leeway: "10s"'
+
   - it: requires exchange settings when the identity mode is exchange
     set:
       engine.host: engine.example

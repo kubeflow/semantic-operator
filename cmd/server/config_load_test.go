@@ -61,6 +61,7 @@ auth:
   issuer: https://idp
   audience: semantic-api
   claimsToCopy: [tenant, sub]
+  leeway: 10s
 query:
   maxConcurrent: 12
 store:
@@ -97,6 +98,9 @@ store:
 	}
 	if len(cfg.Auth.ClaimsToCopy) != 2 || cfg.Auth.ClaimsToCopy[0] != "tenant" {
 		t.Errorf("auth.claims_to_copy = %v", cfg.Auth.ClaimsToCopy)
+	}
+	if cfg.Auth.Leeway != 10*time.Second {
+		t.Errorf("auth.leeway = %s, want 10s", cfg.Auth.Leeway)
 	}
 	if cfg.Query.MaxConcurrent != 12 {
 		t.Errorf("query.max_concurrent = %d, want 12", cfg.Query.MaxConcurrent)
